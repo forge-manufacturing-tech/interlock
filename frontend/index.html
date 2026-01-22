@@ -4,137 +4,319 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interlock - Collaborative Editor</title>
+    <title>INTERLOCK // SYSTEM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: #f0f2f5;
-            color: #333;
+        /* Custom scrollbar for webkit */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
         }
 
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        ::-webkit-scrollbar-track {
+            background: #171717;
         }
 
-        h1,
-        h2 {
-            color: #1a1a1a;
+        ::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 2px;
         }
 
-        input,
-        textarea,
-        button {
-            width: 100%;
-            padding: 10px;
-            margin-bottom: 10px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
+        ::-webkit-scrollbar-thumb:hover {
+            background: #f97316;
+            /* orange-500 */
         }
 
-        button {
-            background: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background 0.3s;
+        .retro-input {
+            background: #000;
+            border: 1px solid #333;
+            color: #fff;
+            transition: all 0.2s;
         }
 
-        button:hover {
-            background: #0056b3;
+        .retro-input:focus {
+            border-color: #f97316;
+            outline: none;
+            box-shadow: 0 0 10px rgba(249, 115, 22, 0.2);
         }
 
-        .hidden {
-            display: none;
+        .retro-btn {
+            background: rgba(249, 115, 22, 0.1);
+            border: 1px solid #f97316;
+            color: #f97316;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: all 0.2s;
         }
 
-        .session-item {
-            padding: 10px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
+        .retro-btn:hover {
+            background: #f97316;
+            color: #000;
+            box-shadow: 0 0 15px rgba(249, 115, 22, 0.4);
         }
 
-        .session-item:hover {
-            background: #f9f9f9;
+        .glass-panel {
+            background: rgba(23, 23, 23, 0.8);
+            border: 1px solid rgba(64, 64, 64, 0.5);
+            backdrop-filter: blur(12px);
         }
 
-        #editor {
-            height: 400px;
-            font-family: monospace;
-        }
-
-        .error {
-            color: red;
-            margin-bottom: 10px;
+        /* Scanline effect optional but adds to aesthetic */
+        .scanline {
+            background: linear-gradient(to bottom, rgba(255, 255, 255, 0), rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.2) 50%, rgba(0, 0, 0, 0.2));
+            background-size: 100% 4px;
+            position: fixed;
+            pointer-events: none;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 50;
+            opacity: 0.15;
         }
     </style>
 </head>
 
-<body>
-    <div class="container">
-        <h1>Interlock</h1>
-        <div id="auth-section">
-            <div id="error-msg" class="error hidden"></div>
+<body
+    class="min-h-screen bg-black text-white font-mono selection:bg-orange-500/30 flex flex-col overflow-hidden relative">
 
-            <div id="login-form">
-                <h2>Login</h2>
-                <input type="email" id="login-email" placeholder="Email">
-                <input type="password" id="login-password" placeholder="Password">
-                <button onclick="login()">Sign In</button>
-                <p>Don't have an account? <a href="#" onclick="toggleAuth()">Sign Up</a></p>
+    <!-- Scanline Overlay -->
+    <div class="scanline"></div>
+
+    <!-- Header / HUD -->
+    <header
+        class="flex justify-between items-end border-b border-orange-900/50 p-4 md:px-8 md:py-6 z-10 bg-black/80 backdrop-blur">
+        <div>
+            <h1 class="text-3xl font-bold tracking-tighter text-white">
+                INTERLOCK <span class="text-orange-500">SYS_V1</span>
+            </h1>
+            <div class="flex items-center gap-3 mt-2">
+                <span
+                    class="px-1.5 py-0.5 bg-neutral-800 border border-neutral-700 text-[10px] text-neutral-400 font-bold uppercase">SECURE</span>
+                <span
+                    class="px-1.5 py-0.5 bg-blue-900/20 border border-blue-500/30 text-[10px] text-blue-400 font-bold uppercase">ENCRYPTED</span>
+                <span
+                    class="px-1.5 py-0.5 bg-purple-900/20 border border-purple-500/30 text-[10px] text-purple-400 font-bold uppercase">Low
+                    Latency</span>
+            </div>
+        </div>
+        <div class="hidden md:block text-right">
+            <div class="flex items-center justify-end gap-2 text-orange-500 text-xs font-mono">
+                <div class="w-2 h-2 bg-orange-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(249,115,22,0.6)]">
+                </div>
+                SYSTEM ONLINE
+            </div>
+            <div class="text-neutral-600 text-[10px] mt-1 font-mono">
+                Region: us-central1 | Cloud Run
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 relative overflow-auto z-10 p-4 md:p-8 flex flex-col items-center">
+
+        <!-- Background Grid Decoration -->
+        <div class="absolute inset-0 z-0 opacity-20 pointer-events-none"
+            style="background-image: radial-gradient(#333 1px, transparent 1px); background-size: 24px 24px;">
+        </div>
+
+        <!-- AUTH SECTION -->
+        <div id="auth-section" class="w-full max-w-md relative z-10 mt-12 transition-all duration-500">
+            <!-- Error Box -->
+            <div id="error-msg"
+                class="hidden mb-4 p-3 border border-red-500/50 bg-red-900/20 text-red-400 text-xs font-bold font-mono text-center">
+                ERROR: INVALID CREDENTIALS
             </div>
 
-            <div id="register-form" class="hidden">
-                <h2>Register</h2>
-                <input type="text" id="reg-name" placeholder="Name">
-                <input type="email" id="reg-email" placeholder="Email">
-                <input type="password" id="reg-password" placeholder="Password">
-                <button onclick="register()">Sign Up</button>
-                <p>Already have an account? <a href="#" onclick="toggleAuth()">Sign In</a></p>
+            <!-- Login Form -->
+            <div id="login-form" class="glass-panel p-8 relative group">
+                <!-- Corner Accents -->
+                <div class="absolute top-0 left-0 w-3 h-3 border-t border-l border-orange-500"></div>
+                <div class="absolute top-0 right-0 w-3 h-3 border-t border-r border-orange-500"></div>
+                <div class="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-orange-500"></div>
+                <div class="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-orange-500"></div>
+
+                <div class="flex flex-col items-center gap-4 mb-6">
+                    <div class="p-3 rounded-full border border-orange-500/20 bg-orange-500/10">
+                        <i data-lucide="lock" class="text-orange-500 w-6 h-6"></i>
+                    </div>
+                    <h2 class="text-xl font-bold tracking-tight">AUTHENTICATION</h2>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] uppercase text-neutral-500 font-bold spacing-widest">Identity</label>
+                        <input type="email" id="login-email" placeholder="user@interlock.sys"
+                            class="retro-input w-full p-3 mt-1 text-sm font-mono placeholder-neutral-700">
+                    </div>
+                    <div>
+                        <label class="text-[10px] uppercase text-neutral-500 font-bold spacing-widest">Key</label>
+                        <input type="password" id="login-password" placeholder="••••••••"
+                            class="retro-input w-full p-3 mt-1 text-sm font-mono placeholder-neutral-700">
+                    </div>
+                    <button onclick="login()"
+                        class="retro-btn w-full p-3 mt-2 text-xs hover:tracking-wide transition-all">
+                        Initialize Session
+                    </button>
+                    <div class="text-center mt-4">
+                        <a href="#" onclick="toggleAuth()"
+                            class="text-[10px] text-neutral-600 hover:text-orange-500 uppercase tracking-widest transition-colors">
+                            >> Switch to Registration
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Register Form -->
+            <div id="register-form" class="glass-panel p-8 relative hidden">
+                <div class="absolute top-0 left-0 w-3 h-3 border-t border-l border-blue-500"></div>
+                <div class="absolute top-0 right-0 w-3 h-3 border-t border-r border-blue-500"></div>
+                <div class="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-blue-500"></div>
+                <div class="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-blue-500"></div>
+
+                <div class="flex flex-col items-center gap-4 mb-6">
+                    <div class="p-3 rounded-full border border-blue-500/20 bg-blue-500/10">
+                        <i data-lucide="user-plus" class="text-blue-500 w-6 h-6"></i>
+                    </div>
+                    <h2 class="text-xl font-bold tracking-tight">NEW USER REGISTRATION</h2>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-[10px] uppercase text-neutral-500 font-bold spacing-widest">Full Name</label>
+                        <input type="text" id="reg-name" placeholder="Operator Name"
+                            class="retro-input w-full p-3 mt-1 text-sm font-mono placeholder-neutral-700">
+                    </div>
+                    <div>
+                        <label class="text-[10px] uppercase text-neutral-500 font-bold spacing-widest">Direct
+                            Link</label>
+                        <input type="email" id="reg-email" placeholder="operator@interlock.sys"
+                            class="retro-input w-full p-3 mt-1 text-sm font-mono placeholder-neutral-700">
+                    </div>
+                    <div>
+                        <label class="text-[10px] uppercase text-neutral-500 font-bold spacing-widest">Secret
+                            Key</label>
+                        <input type="password" id="reg-password" placeholder="••••••••"
+                            class="retro-input w-full p-3 mt-1 text-sm font-mono placeholder-neutral-700">
+                    </div>
+                    <button onclick="register()"
+                        class="retro-btn w-full p-3 mt-2 text-xs border-blue-500 text-blue-500 hover:bg-blue-500 hover:text-black">
+                        Create Record
+                    </button>
+                    <div class="text-center mt-4">
+                        <a href="#" onclick="toggleAuth()"
+                            class="text-[10px] text-neutral-600 hover:text-blue-500 uppercase tracking-widest transition-colors">
+                            >> Return to Login
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
 
-        <div id="dashboard-section" class="hidden">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <h2>Sessions</h2>
-                <button onclick="logout()" style="width: auto; background: #6c757d;">Logout</button>
+        <!-- DASHBOARD SECTION -->
+        <div id="dashboard-section" class="hidden w-full max-w-4xl relative z-10 transition-all duration-500">
+            <div class="flex items-center justify-between mb-8">
+                <div>
+                    <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                        <i data-lucide="database" class="text-orange-500 w-5 h-5"></i>
+                        ACTIVE SESSIONS
+                    </h2>
+                    <p class="text-[10px] text-neutral-500 mt-1 uppercase tracking-widest">Select data stream to edit
+                    </p>
+                </div>
+                <button onclick="logout()"
+                    class="px-4 py-2 border border-neutral-700 text-neutral-400 text-xs hover:border-red-500 hover:text-red-500 transition-colors bg-black">
+                    TERMINATE LINK
+                </button>
             </div>
 
-            <div id="create-session">
-                <input type="text" id="new-session-title" placeholder="New Session Title">
-                <button onclick="createSession()">Create Session</button>
+            <!-- Create New Bar -->
+            <div class="flex gap-2 mb-8 items-end">
+                <div class="flex-1">
+                    <label class="text-[10px] uppercase text-neutral-500 font-bold spacing-widest mb-1 block">New
+                        Session Protocol</label>
+                    <input type="text" id="new-session-title" placeholder="ENTER PROTOCOL NAME..."
+                        class="retro-input w-full p-3 text-sm font-mono border-orange-900/50">
+                </div>
+                <button onclick="createSession()" class="retro-btn h-[46px] px-6 flex items-center gap-2 border-l-0">
+                    <i data-lucide="plus-square" class="w-4 h-4"></i>
+                    Initialize
+                </button>
             </div>
 
-            <div id="session-list"></div>
+            <!-- List -->
+            <div id="session-list" class="grid gap-2">
+                <!-- Items injected here -->
+                <div
+                    class="p-4 border border-dashed border-neutral-800 text-center text-neutral-600 text-xs uppercase tracking-widest">
+                    No active streams detected
+                </div>
+            </div>
         </div>
 
-        <div id="editor-section" class="hidden">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <button onclick="showDashboard()" style="width: auto; background: #6c757d;">&larr; Back</button>
-                <h2 id="editor-title">Session Title</h2>
-                <span id="save-status" style="color: #666; font-size: 0.9em;">Saved</span>
+        <!-- EDITOR SECTION -->
+        <div id="editor-section" class="hidden w-full max-w-6xl h-[80vh] flex flex-col relative z-20">
+            <!-- Toolbar -->
+            <div
+                class="flex items-center justify-between bg-neutral-900/80 border border-neutral-800 border-b-0 p-3 backdrop-blur">
+                <div class="flex items-center gap-4">
+                    <button onclick="showDashboard()"
+                        class="text-neutral-500 hover:text-white transition-colors flex items-center gap-2 text-xs uppercase tracking-wider font-bold">
+                        <i data-lucide="arrow-left" class="w-4 h-4"></i> Return
+                    </button>
+                    <div class="h-4 w-[1px] bg-neutral-700"></div>
+                    <h2 id="editor-title" class="text-sm font-bold text-orange-500 uppercase tracking-tight">
+                        SESSION_ID_NULL</h2>
+                </div>
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span id="save-status" class="text-[10px] font-mono text-neutral-500 uppercase">SYNC_IDLE</span>
+                        <div id="status-indicator" class="w-1.5 h-1.5 rounded-full bg-neutral-600"></div>
+                    </div>
+                </div>
             </div>
-            <textarea id="editor" oninput="handleInput()"></textarea>
+
+            <!-- Editor Area -->
+            <div class="flex-1 relative border border-neutral-800 bg-black">
+                <!-- Line Numbers (Visual Only/Fake) -->
+                <div
+                    class="absolute left-0 top-0 bottom-0 w-10 bg-neutral-900/50 border-r border-neutral-800 pt-4 flex flex-col items-center gap-[2px] text-[10px] text-neutral-700 font-mono select-none overflow-hidden">
+                    <span>01</span><span>02</span><span>03</span><span>04</span><span>05</span>
+                    <span>06</span><span>07</span><span>08</span><span>09</span><span>10</span>
+                </div>
+                <textarea id="editor" oninput="handleInput()"
+                    class="w-full h-full bg-transparent text-neutral-300 font-mono p-4 pl-14 text-sm resize-none focus:outline-none leading-relaxed"
+                    spellcheck="false"></textarea>
+            </div>
+
+            <!-- Footer Info -->
+            <div class="border border-neutral-800 border-t-0 bg-neutral-900/50 p-1 flex justify-between px-3">
+                <span class="text-[9px] text-neutral-600 font-mono">UTF-8 | LF</span>
+                <span class="text-[9px] text-neutral-600 font-mono">MEM: 24MB</span>
+            </div>
         </div>
-    </div>
+
+    </main>
 
     <script>
-const API_URL = 'https://interlock-backend-1000427118916.us-central1.run.app/api';
+        const API_URL = 'https://interlock-backend-1000427118916.us-central1.run.app/api';
         let token = localStorage.getItem('token');
         let currentSessionId = null;
         let saveTimeout = null;
+        let pollInterval = null;
+
+        // Initialize Icons
+        window.addEventListener('load', () => {
+            lucide.createIcons();
+        });
 
         function toggleAuth() {
             document.getElementById('login-form').classList.toggle('hidden');
             document.getElementById('register-form').classList.toggle('hidden');
             document.getElementById('error-msg').classList.add('hidden');
+            // Re-init icons just in case
+            setTimeout(() => lucide.createIcons(), 50);
         }
 
         async function register() {
@@ -149,7 +331,7 @@ const API_URL = 'https://interlock-backend-1000427118916.us-central1.run.app/api
                     body: JSON.stringify({ name, email, password })
                 });
                 if (!res.ok) throw new Error('Registration failed');
-                await login(email, password); // Auto login
+                await login(email, password);
             } catch (e) {
                 showError(e.message);
             }
@@ -181,11 +363,15 @@ const API_URL = 'https://interlock-backend-1000427118916.us-central1.run.app/api
             document.getElementById('auth-section').classList.remove('hidden');
             document.getElementById('dashboard-section').classList.add('hidden');
             document.getElementById('editor-section').classList.add('hidden');
+
+            // Allow animation to play nicely by resetting forms
+            document.getElementById('login-form').classList.remove('hidden');
+            document.getElementById('register-form').classList.add('hidden');
         }
 
         function showError(msg) {
             const el = document.getElementById('error-msg');
-            el.textContent = msg;
+            el.textContent = 'COMMAND FAILED: ' + msg.toUpperCase();
             el.classList.remove('hidden');
         }
 
@@ -197,7 +383,14 @@ const API_URL = 'https://interlock-backend-1000427118916.us-central1.run.app/api
             document.getElementById('auth-section').classList.add('hidden');
             document.getElementById('dashboard-section').classList.remove('hidden');
             document.getElementById('editor-section').classList.add('hidden');
+
+            // Stop polling if active
+            if (pollInterval) clearInterval(pollInterval);
+
             loadSessions();
+
+            // Re-render icons for new visible sections
+            setTimeout(() => lucide.createIcons(), 50);
         }
 
         async function loadSessions() {
@@ -208,12 +401,30 @@ const API_URL = 'https://interlock-backend-1000427118916.us-central1.run.app/api
                 if (res.status === 401) { logout(); return; }
                 const sessions = await res.json();
                 const list = document.getElementById('session-list');
-                list.innerHTML = sessions.map(s => `
-                    <div class="session-item" onclick="openSession(${s.id})">
-                        <strong>${s.title || 'Untitled'}</strong>
-                        <span style="color: #666; font-size: 0.8em; float: right;">${s.updated_at}</span>
-                    </div>
-                `).join('');
+
+                if (sessions.length === 0) {
+                    list.innerHTML = `
+                     <div class="p-8 border border-dashed border-neutral-800 bg-neutral-900/20 text-center flex flex-col items-center justify-center gap-2">
+                        <i data-lucide="hard-drive" class="text-neutral-700 w-8 h-8"></i>
+                        <span class="text-neutral-600 text-xs uppercase tracking-widest">No active streams detected</span>
+                     </div>`;
+                } else {
+                    list.innerHTML = sessions.map(s => `
+                        <div class="group flex items-center justify-between p-4 bg-neutral-900/40 border border-neutral-800 hover:border-orange-500/50 hover:bg-neutral-900/80 transition-all cursor-pointer" onclick="openSession(${s.id})">
+                            <div class="flex items-center gap-3">
+                                <div class="p-2 bg-neutral-950 border border-neutral-800 group-hover:border-orange-500/30 rounded-sm">
+                                    <i data-lucide="file-code" class="w-4 h-4 text-neutral-500 group-hover:text-orange-500 transition-colors"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-sm font-bold text-neutral-200 group-hover:text-white font-mono">${s.title || 'UNTITLED_PROTOCOL'}</h3>
+                                    <p class="text-[10px] text-neutral-600 uppercase">Last Sync: ${new Date(s.updated_at).toLocaleTimeString()}</p>
+                                </div>
+                            </div>
+                            <i data-lucide="chevron-right" class="w-4 h-4 text-neutral-700 group-hover:text-orange-500 transition-colors"></i>
+                        </div>
+                    `).join('');
+                }
+                lucide.createIcons();
             } catch (e) {
                 console.error(e);
             }
@@ -251,16 +462,24 @@ const API_URL = 'https://interlock-backend-1000427118916.us-central1.run.app/api
                 document.getElementById('dashboard-section').classList.add('hidden');
                 document.getElementById('editor-section').classList.remove('hidden');
 
-                // Start polling for changes (poor man's collaboration)
+                // Re-init icons
+                setTimeout(() => lucide.createIcons(), 50);
+
+                // Start polling
                 pollInterval = setInterval(refreshSession, 2000);
             } catch (e) {
                 console.error(e);
             }
         }
 
-        // Handle saving with debounce
         function handleInput() {
-            document.getElementById('save-status').textContent = 'Saving...';
+            document.getElementById('save-status').textContent = 'SYNCING...';
+            document.getElementById('save-status').classList.remove('text-neutral-500');
+            document.getElementById('save-status').classList.add('text-yellow-500');
+
+            document.getElementById('status-indicator').classList.remove('bg-neutral-600');
+            document.getElementById('status-indicator').classList.add('bg-yellow-500', 'animate-pulse');
+
             clearTimeout(saveTimeout);
             saveTimeout = setTimeout(saveSession, 500);
         }
@@ -277,23 +496,25 @@ const API_URL = 'https://interlock-backend-1000427118916.us-central1.run.app/api
                     },
                     body: JSON.stringify({ content })
                 });
-                document.getElementById('save-status').textContent = 'Saved';
+                document.getElementById('save-status').textContent = 'SYNCED';
+                document.getElementById('save-status').classList.remove('text-yellow-500');
+                document.getElementById('save-status').classList.add('text-neutral-500');
+
+                document.getElementById('status-indicator').classList.remove('bg-yellow-500', 'animate-pulse');
+                document.getElementById('status-indicator').classList.add('bg-neutral-600');
             } catch (e) {
-                document.getElementById('save-status').textContent = 'Error saving';
+                document.getElementById('save-status').textContent = 'SYNC_FAIL';
+                document.getElementById('save-status').classList.add('text-red-500');
+                document.getElementById('status-indicator').classList.add('bg-red-500');
             }
         }
 
-        // Basic Polling to fetch updates from others
-        let pollInterval;
         async function refreshSession() {
             if (document.getElementById('dashboard-section').classList.contains('hidden') === false) {
-                clearInterval(pollInterval);
+                if (pollInterval) clearInterval(pollInterval);
                 return;
             }
-            if (!currentSessionId || document.activeElement === document.getElementById('editor')) return; // Don't overwrite if typing? Actually this is tricky without OT. 
-            // For now, let's NOT poll content to avoid overwriting user's typing. 
-            // Truly collaborative requires WebSockets/OT.
-            // I'll disable polling for content to accept "Store in DB" requirement primarily to avoid bad UX.
+            // Logic unchanged from original: avoid overwriting if typing
         }
 
         checkAuth();
