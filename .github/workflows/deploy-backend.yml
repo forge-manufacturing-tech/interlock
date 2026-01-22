@@ -104,4 +104,5 @@ jobs:
             --port 5150 \
             --set-env-vars LOCO_ENV=production \
             --set-env-vars DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            --set-env-vars JWT_SECRET="${{ secrets.JWT_SECRET }}"
+            --set-env-vars JWT_SECRET="${{ secrets.JWT_SECRET }}" \
+            --set-env-vars DB_CONNECT_TIMEOUT=5000
