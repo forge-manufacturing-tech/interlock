@@ -1,0 +1,36 @@
+{
+    "name": "Rust & PostgreSQL",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+    "features": {
+        "ghcr.io/devcontainers/features/common-utils:2": {}
+    },
+    "containerEnv": {
+        "DATABASE_URL": "postgres://loco:loco@localhost:5432/backend_development"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "rust-lang.rust-analyzer",
+                "tamasfe.even-better-toml",
+                "vadimcn.vscode-lldb",
+                "serayuzgur.crates"
+            ]
+        }
+    },
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    "remoteUser": "vscode",
+    "forwardPorts": [
+        5432,
+        5150
+    ],
+    "portsAttributes": {
+        "5432": {
+            "label": "PostgreSQL"
+        },
+        "5150": {
+            "label": "Loco API Server"
+        }
+    }
+}
