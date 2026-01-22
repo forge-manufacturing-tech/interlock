@@ -1,30 +1,26 @@
-FROM rust:1-slim-bookworm as builder
-
+FROM rust:1-slim-bookworm as chef
 WORKDIR /usr/src/app
-
+RUN cargo install cargo-chef
 COPY . .
 
-# Build the application
+FROM chef as planner
+RUN cargo chef prepare --recipe-path recipe.json
+
+FROM chef as builder
+COPY --from=planner /usr/src/app/recipe.json recipe.json
+# Build dependencies - this is the caching layer!
+RUN cargo chef cook --release --recipe-path recipe.json
+
+# Build application
+COPY . .
 RUN cargo build --release
 
 FROM debian:bookworm-slim
-
 WORKDIR /usr/app
-
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
-
-# Copy the binary
 COPY --from=builder /usr/src/app/target/release/backend-cli /usr/app/backend-cli
-
-# Copy configuration
 COPY config /usr/app/config
-
-# Set environment to production
 ENV LOCO_ENV=production
-
-# Expose the application port
 EXPOSE 5150
-
-# Run the application
 CMD ["./backend-cli", "start"]
