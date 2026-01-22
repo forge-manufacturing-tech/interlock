@@ -410,7 +410,7 @@
                      </div>`;
                 } else {
                     list.innerHTML = sessions.map(s => `
-                        <div class="group flex items-center justify-between p-4 bg-neutral-900/40 border border-neutral-800 hover:border-orange-500/50 hover:bg-neutral-900/80 transition-all cursor-pointer" onclick="openSession(${s.id})">
+                        <div class="group flex items-center justify-between p-4 bg-neutral-900/40 border border-neutral-800 hover:border-orange-500/50 hover:bg-neutral-900/80 transition-all cursor-pointer" onclick="openSession('${s.id}')">
                             <div class="flex items-center gap-3">
                                 <div class="p-2 bg-neutral-950 border border-neutral-800 group-hover:border-orange-500/30 rounded-sm">
                                     <i data-lucide="file-code" class="w-4 h-4 text-neutral-500 group-hover:text-orange-500 transition-colors"></i>

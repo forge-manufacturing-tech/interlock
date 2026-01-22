@@ -29,3 +29,20 @@ async fn test_model() {
     // snapshot the result:
     // assert_debug_snapshot!(item);
 }
+
+#[test]
+fn test_serialization() {
+    use backend::models::_entities::sessions::Model;
+    use chrono::{Utc, TimeZone};
+
+    let item = Model {
+        created_at: Utc.timestamp_opt(0, 0).unwrap().into(),
+        updated_at: Utc.timestamp_opt(0, 0).unwrap().into(),
+        id: 1143710921714696200,
+        title: Some("test".to_string()),
+        content: Some("content".to_string()),
+    };
+
+    let json = serde_json::to_string(&item).unwrap();
+    assert!(json.contains("\"id\":\"1143710921714696200\""), "JSON was: {}", json);
+}
