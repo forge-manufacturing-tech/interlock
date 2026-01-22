@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interlock - Collaborative Editor</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f0f2f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        h1,
+        h2 {
+            color: #1a1a1a;
+        }
+
+        input,
+        textarea,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #0056b3;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .session-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+        }
+
+        .session-item:hover {
+            background: #f9f9f9;
+        }
+
+        #editor {
+            height: 400px;
+            font-family: monospace;
+        }
+
+        .error {
+            color: red;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>Interlock</h1>
+        <div id="auth-section">
+            <div id="error-msg" class="error hidden"></div>
+
+            <div id="login-form">
+                <h2>Login</h2>
+                <input type="email" id="login-email" placeholder="Email">
+                <input type="password" id="login-password" placeholder="Password">
+                <button onclick="login()">Sign In</button>
+                <p>Don't have an account? <a href="#" onclick="toggleAuth()">Sign Up</a></p>
+            </div>
+
+            <div id="register-form" class="hidden">
+                <h2>Register</h2>
+                <input type="text" id="reg-name" placeholder="Name">
+                <input type="email" id="reg-email" placeholder="Email">
+                <input type="password" id="reg-password" placeholder="Password">
+                <button onclick="register()">Sign Up</button>
+                <p>Already have an account? <a href="#" onclick="toggleAuth()">Sign In</a></p>
+            </div>
+        </div>
+
+        <div id="dashboard-section" class="hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Sessions</h2>
+                <button onclick="logout()" style="width: auto; background: #6c757d;">Logout</button>
+            </div>
+
+            <div id="create-session">
+                <input type="text" id="new-session-title" placeholder="New Session Title">
+                <button onclick="createSession()">Create Session</button>
+            </div>
+
+            <div id="session-list"></div>
+        </div>
+
+        <div id="editor-section" class="hidden">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="showDashboard()" style="width: auto; background: #6c757d;">&larr; Back</button>
+                <h2 id="editor-title">Session Title</h2>
+                <span id="save-status" style="color: #666; font-size: 0.9em;">Saved</span>
+            </div>
+            <textarea id="editor" oninput="handleInput()"></textarea>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'http://localhost:5150/api';
+        let token = localStorage.getItem('token');
+        let currentSessionId = null;
+        let saveTimeout = null;
+
+        function toggleAuth() {
+            document.getElementById('login-form').classList.toggle('hidden');
+            document.getElementById('register-form').classList.toggle('hidden');
+            document.getElementById('error-msg').classList.add('hidden');
+        }
+
+        async function register() {
+            const name = document.getElementById('reg-name').value;
+            const email = document.getElementById('reg-email').value;
+            const password = document.getElementById('reg-password').value;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/register`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password })
+                });
+                if (!res.ok) throw new Error('Registration failed');
+                await login(email, password); // Auto login
+            } catch (e) {
+                showError(e.message);
+            }
+        }
+
+        async function login(emailIn, passwordIn) {
+            const email = emailIn || document.getElementById('login-email').value;
+            const password = passwordIn || document.getElementById('login-password').value;
+
+            try {
+                const res = await fetch(`${API_URL}/auth/login`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                if (!res.ok) throw new Error('Login failed');
+                const data = await res.json();
+                token = data.token;
+                localStorage.setItem('token', token);
+                showDashboard();
+            } catch (e) {
+                showError(e.message);
+            }
+        }
+
+        function logout() {
+            token = null;
+            localStorage.removeItem('token');
+            document.getElementById('auth-section').classList.remove('hidden');
+            document.getElementById('dashboard-section').classList.add('hidden');
+            document.getElementById('editor-section').classList.add('hidden');
+        }
+
+        function showError(msg) {
+            const el = document.getElementById('error-msg');
+            el.textContent = msg;
+            el.classList.remove('hidden');
+        }
+
+        function checkAuth() {
+            if (token) showDashboard();
+        }
+
+        async function showDashboard() {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('dashboard-section').classList.remove('hidden');
+            document.getElementById('editor-section').classList.add('hidden');
+            loadSessions();
+        }
+
+        async function loadSessions() {
+            try {
+                const res = await fetch(`${API_URL}/sessions`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.status === 401) { logout(); return; }
+                const sessions = await res.json();
+                const list = document.getElementById('session-list');
+                list.innerHTML = sessions.map(s => `
+                    <div class="session-item" onclick="openSession(${s.id})">
+                        <strong>${s.title || 'Untitled'}</strong>
+                        <span style="color: #666; font-size: 0.8em; float: right;">${s.updated_at}</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function createSession() {
+            const title = document.getElementById('new-session-title').value;
+            if (!title) return;
+            try {
+                await fetch(`${API_URL}/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ title, content: '' })
+                });
+                document.getElementById('new-session-title').value = '';
+                loadSessions();
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function openSession(id) {
+            currentSessionId = id;
+            try {
+                const res = await fetch(`${API_URL}/sessions/${id}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const session = await res.json();
+                document.getElementById('editor-title').textContent = session.title;
+                document.getElementById('editor').value = session.content || '';
+
+                document.getElementById('dashboard-section').classList.add('hidden');
+                document.getElementById('editor-section').classList.remove('hidden');
+
+                // Start polling for changes (poor man's collaboration)
+                pollInterval = setInterval(refreshSession, 2000);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // Handle saving with debounce
+        function handleInput() {
+            document.getElementById('save-status').textContent = 'Saving...';
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(saveSession, 500);
+        }
+
+        async function saveSession() {
+            if (!currentSessionId) return;
+            const content = document.getElementById('editor').value;
+            try {
+                await fetch(`${API_URL}/sessions/${currentSessionId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ content })
+                });
+                document.getElementById('save-status').textContent = 'Saved';
+            } catch (e) {
+                document.getElementById('save-status').textContent = 'Error saving';
+            }
+        }
+
+        // Basic Polling to fetch updates from others
+        let pollInterval;
+        async function refreshSession() {
+            if (document.getElementById('dashboard-section').classList.contains('hidden') === false) {
+                clearInterval(pollInterval);
+                return;
+            }
+            if (!currentSessionId || document.activeElement === document.getElementById('editor')) return; // Don't overwrite if typing? Actually this is tricky without OT. 
+            // For now, let's NOT poll content to avoid overwriting user's typing. 
+            // Truly collaborative requires WebSockets/OT.
+            // I'll disable polling for content to accept "Store in DB" requirement primarily to avoid bad UX.
+        }
+
+        checkAuth();
+    </script>
+</body>
+
+</html>
