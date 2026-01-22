@@ -57,7 +57,7 @@ async fn register(
                 user_email = &params.email,
                 "could not register user",
             );
-            return format::json(());
+            return bad_request(&err.to_string());
         }
     };
 
@@ -135,12 +135,16 @@ async fn reset(State(ctx): State<AppContext>, Json(params): Json<ResetParams>) -
 /// Creates a user login and returns a token
 #[debug_handler]
 async fn login(State(ctx): State<AppContext>, Json(params): Json<LoginParams>) -> Result<Response> {
-    let Ok(user) = users::Model::find_by_email(&ctx.db, &params.email).await else {
-        tracing::debug!(
-            email = params.email,
-            "login attempt with non-existent email"
-        );
-        return unauthorized("Invalid credentials!");
+    let user = match users::Model::find_by_email(&ctx.db, &params.email).await {
+        Ok(user) => user,
+        Err(err) => {
+            tracing::debug!(
+                email = params.email,
+                error = err.to_string(),
+                "login attempt failed"
+            );
+            return unauthorized(&format!("Invalid credentials! Error: {}", err));
+        }
     };
 
     let valid = user.verify_password(&params.password);
