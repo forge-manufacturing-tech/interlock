@@ -18,7 +18,8 @@ RUN cargo build --release
 FROM debian:bookworm-slim
 WORKDIR /usr/app
 # Install runtime dependencies
-RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y ca-certificates && rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /root/.postgresql && cp /etc/ssl/certs/ca-certificates.crt /root/.postgresql/root.crt
 COPY --from=builder /usr/src/app/target/release/backend-cli /usr/app/backend-cli
 COPY config /usr/app/config
 ENV LOCO_ENV=production
