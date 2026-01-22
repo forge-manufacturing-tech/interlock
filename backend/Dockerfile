@@ -1,12 +1,12 @@
-FROM rust:1-slim-bookworm as chef
+FROM rust:1-slim-bookworm AS chef
 WORKDIR /usr/src/app
 RUN cargo install cargo-chef
 COPY . .
 
-FROM chef as planner
+FROM chef AS planner
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM chef as builder
+FROM chef AS builder
 COPY --from=planner /usr/src/app/recipe.json recipe.json
 # Build dependencies - this is the caching layer!
 RUN cargo chef cook --release --recipe-path recipe.json
