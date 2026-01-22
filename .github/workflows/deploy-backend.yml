@@ -104,6 +104,4 @@ jobs:
             --port 5150 \
             --set-env-vars LOCO_ENV=production \
             --set-env-vars DATABASE_URL="${{ secrets.DATABASE_URL }}" \
-            --set-env-vars REDIS_URL="${{ secrets.REDIS_URL }}" \
-            --set-env-vars JWT_SECRET="${{ secrets.JWT_SECRET }}" \
-            --vpc-connector ${{ secrets.GCP_VPC_CONNECTOR }}
+            --set-env-vars JWT_SECRET="${{ secrets.JWT_SECRET }}"
