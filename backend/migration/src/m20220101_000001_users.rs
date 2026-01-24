@@ -7,31 +7,66 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
-        create_table(
-            m,
-            "users",
-            &[
-                ("id", ColType::PkAuto),
-                ("pid", ColType::Uuid),
-                ("email", ColType::StringUniq),
-                ("password", ColType::String),
-                ("api_key", ColType::StringUniq),
-                ("name", ColType::String),
-                ("reset_token", ColType::StringNull),
-                ("reset_sent_at", ColType::TimestampWithTimeZoneNull),
-                ("email_verification_token", ColType::StringNull),
-                (
-                    "email_verification_sent_at",
-                    ColType::TimestampWithTimeZoneNull,
-                ),
-                ("email_verified_at", ColType::TimestampWithTimeZoneNull),
-                ("magic_link_token", ColType::StringNull),
-                ("magic_link_expiration", ColType::TimestampWithTimeZoneNull),
-            ],
-            &[],
+        m.create_table(
+            Table::create()
+                .table(Alias::new("users"))
+                .if_not_exists()
+                .col(
+                    ColumnDef::new(Alias::new("id"))
+                        .big_integer()
+                        .not_null()
+                        .auto_increment()
+                        .primary_key(),
+                )
+                .col(ColumnDef::new(Alias::new("pid")).uuid().not_null())
+                .col(
+                    ColumnDef::new(Alias::new("email"))
+                        .string()
+                        .not_null()
+                        .unique_key(),
+                )
+                .col(ColumnDef::new(Alias::new("password")).string().not_null())
+                .col(
+                    ColumnDef::new(Alias::new("api_key"))
+                        .string()
+                        .not_null()
+                        .unique_key(),
+                )
+                .col(ColumnDef::new(Alias::new("name")).string().not_null())
+                .col(ColumnDef::new(Alias::new("reset_token")).string().null())
+                .col(
+                    ColumnDef::new(Alias::new("reset_sent_at"))
+                        .timestamp_with_time_zone()
+                        .null(),
+                )
+                .col(
+                    ColumnDef::new(Alias::new("email_verification_token"))
+                        .string()
+                        .null(),
+                )
+                .col(
+                    ColumnDef::new(Alias::new("email_verification_sent_at"))
+                        .timestamp_with_time_zone()
+                        .null(),
+                )
+                .col(
+                    ColumnDef::new(Alias::new("email_verified_at"))
+                        .timestamp_with_time_zone()
+                        .null(),
+                )
+                .col(
+                    ColumnDef::new(Alias::new("magic_link_token"))
+                        .string()
+                        .null(),
+                )
+                .col(
+                    ColumnDef::new(Alias::new("magic_link_expiration"))
+                        .timestamp_with_time_zone()
+                        .null(),
+                )
+                .to_owned(),
         )
-        .await?;
-        Ok(())
+        .await
     }
 
     async fn down(&self, m: &SchemaManager) -> Result<(), DbErr> {
