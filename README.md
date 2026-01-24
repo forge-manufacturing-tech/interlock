@@ -15,3 +15,16 @@ For Linux machinse:
 ```bash
 sudo apt install docker.io
 ```
+
+### 2. Backend
+```bash
+cd backend
+cargo loco start
+```
+
+### 3. Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```

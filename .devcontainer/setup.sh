@@ -19,10 +19,15 @@ psql -h localhost -U postgres -d backend_development -c "DO \$\$ BEGIN IF NOT EX
 # Create interlock database if it doesn't exist
 psql -h localhost -U postgres -d backend_development -tc "SELECT 1 FROM pg_database WHERE datname = 'interlock'" | grep -q 1 || \
     psql -h localhost -U postgres -d backend_development -c "CREATE DATABASE interlock OWNER loco;"
+psql -h localhost -U postgres -d interlock -c "GRANT ALL ON SCHEMA public TO loco;"
 
 # Create test database if it doesn't exist
 psql -h localhost -U postgres -d backend_development -tc "SELECT 1 FROM pg_database WHERE datname = 'backend_test'" | grep -q 1 || \
     psql -h localhost -U postgres -d backend_development -c "CREATE DATABASE backend_test OWNER loco;"
+psql -h localhost -U postgres -d backend_test -c "GRANT ALL ON SCHEMA public TO loco;"
+
+# Ensure loco user has permissions on the default dev database
+psql -h localhost -U postgres -d backend_development -c "GRANT ALL ON SCHEMA public TO loco;"
 
 echo "PostgreSQL setup complete!"
 

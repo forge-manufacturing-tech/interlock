@@ -1,36 +1,37 @@
 {
-    "name": "Rust & PostgreSQL",
-    "dockerComposeFile": "docker-compose.yml",
-    "service": "app",
-    "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-    "features": {
-        "ghcr.io/devcontainers/features/common-utils:2": {}
+  "name": "Rust & PostgreSQL",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {},
+    "ghcr.io/devcontainers/features/node:1": {},
+  },
+  "containerEnv": {
+    "DATABASE_URL": "postgres://loco:loco@localhost:5432/backend_development",
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "rust-lang.rust-analyzer",
+        "tamasfe.even-better-toml",
+        "vadimcn.vscode-lldb",
+        "serayuzgur.crates",
+      ],
     },
-    "containerEnv": {
-        "DATABASE_URL": "postgres://loco:loco@localhost:5432/backend_development"
+  },
+  "postCreateCommand": "bash .devcontainer/setup.sh",
+  "remoteUser": "vscode",
+  "forwardPorts": [5432, 5150, 3000],
+  "portsAttributes": {
+    "5432": {
+      "label": "PostgreSQL",
     },
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "rust-lang.rust-analyzer",
-                "tamasfe.even-better-toml",
-                "vadimcn.vscode-lldb",
-                "serayuzgur.crates"
-            ]
-        }
+    "5150": {
+      "label": "Loco API Server",
     },
-    "postCreateCommand": "bash .devcontainer/setup.sh",
-    "remoteUser": "vscode",
-    "forwardPorts": [
-        5432,
-        5150
-    ],
-    "portsAttributes": {
-        "5432": {
-            "label": "PostgreSQL"
-        },
-        "5150": {
-            "label": "Loco API Server"
-        }
-    }
+    "3000": {
+      "label": "Vite Frontend Server",
+    },
+  },
 }

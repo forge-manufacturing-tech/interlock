@@ -34,9 +34,9 @@ workers:
   
 # Queue Configuration
 queue:
-  kind: Redis
-  # Redis connection URI
-  uri: {{ get_env(name="REDIS_URL", default="redis://127.0.0.1") }}
+  kind: Postgres
+  # Postgres connection URI
+  uri: {{ get_env(name="DATABASE_URL", default="postgres://loco:loco@localhost:5432/backend_test") }}
   # Dangerously flush all data in Redis on startup. dangerous operation, make sure that you using this flag only on dev environments or test mode
   dangerously_flush: false
 

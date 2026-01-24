@@ -1,6 +1,6 @@
-# GEMINI Instructions
+# AGENTS Instructions
 
-If you are a new Antigravity instance working on this repository, you **MUST** follow these rules:
+If you are a new agent instance working on this repository, you **MUST** follow these rules:
 
 1.  **Read the READMEs**: Always start by reading:
     -   `./README.md`
