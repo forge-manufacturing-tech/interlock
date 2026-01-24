@@ -2,6 +2,7 @@
 use loco_rs::prelude::*;
 use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 use crate::models::_entities::sessions::{ActiveModel, Entity, Model};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -23,8 +24,7 @@ impl Params {
 
 #[derive(Debug, Serialize)]
 pub struct SessionResponse {
-    #[serde(with = "crate::models::i64_format")]
-    pub id: i64,
+    pub id: Uuid,
     pub title: Option<String>,
     pub content: Option<String>,
     pub created_at: DateTimeWithTimeZone,
@@ -65,7 +65,7 @@ pub async fn add(State(ctx): State<AppContext>, Json(params): Json<Params>) -> R
 }
 
 pub async fn update(
-    Path(id): Path<i64>,
+    Path(id): Path<Uuid>,
     State(ctx): State<AppContext>,
     Json(params): Json<Params>,
 ) -> Result<Response> {
@@ -76,12 +76,12 @@ pub async fn update(
     format::json(SessionResponse::from(item))
 }
 
-pub async fn remove(Path(id): Path<i64>, State(ctx): State<AppContext>) -> Result<Response> {
+pub async fn remove(Path(id): Path<Uuid>, State(ctx): State<AppContext>) -> Result<Response> {
     load_item(&ctx, id).await?.delete(&ctx.db).await?;
     format::empty()
 }
 
-pub async fn get_one(Path(id): Path<i64>, State(ctx): State<AppContext>) -> Result<Response> {
+pub async fn get_one(Path(id): Path<Uuid>, State(ctx): State<AppContext>) -> Result<Response> {
     format::json(SessionResponse::from(load_item(&ctx, id).await?))
 }
 
@@ -96,7 +96,7 @@ pub fn routes() -> Routes {
         .add("/{id}", patch(update))
 }
 
-pub async fn load_item(ctx: &AppContext, id: i64) -> Result<Model> {
+pub async fn load_item(ctx: &AppContext, id: Uuid) -> Result<Model> {
     let item = Entity::find_by_id(id).one(&ctx.db).await?;
     item.ok_or_else(|| {
         tracing::error!("Session not found with ID: {}", id);

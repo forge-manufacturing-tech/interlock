@@ -36,7 +36,7 @@ workers:
 queue:
   kind: Sqlite
   # Postgres connection URI
-  uri: sqlite::memory:
+  uri: "sqlite::memory:"
   # Dangerously flush all data in Redis on startup. dangerous operation, make sure that you using this flag only on dev environments or test mode
   dangerously_flush: false
 
@@ -67,7 +67,7 @@ mailer:
 # Database Configuration
 database:
   # Database connection URI
-  uri: sqlite::memory:
+  uri: "sqlite::memory:"
   # When enabled, the sql query will be logged.
   enable_logging: false
   # Set the timeout duration when acquiring a connection.
