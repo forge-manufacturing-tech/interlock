@@ -34,15 +34,16 @@ async fn test_model() {
 fn test_serialization() {
     use backend::models::_entities::sessions::Model;
     use chrono::{Utc, TimeZone};
+    use uuid::Uuid;
 
     let item = Model {
         created_at: Utc.timestamp_opt(0, 0).unwrap().into(),
         updated_at: Utc.timestamp_opt(0, 0).unwrap().into(),
-        id: 1143710921714696200,
+        id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap(),
         title: Some("test".to_string()),
         content: Some("content".to_string()),
     };
 
     let json = serde_json::to_string(&item).unwrap();
-    assert!(json.contains("\"id\":\"1143710921714696200\""), "JSON was: {}", json);
+    assert!(json.contains("\"id\":\"11111111-1111-1111-1111-111111111111\""), "JSON was: {}", json);
 }
