@@ -31,12 +31,12 @@ workers:
   #   - BackgroundAsync - Workers operate asynchronously in the background, processing tasks with async capabilities.
   mode: ForegroundBlocking
 
-  
+
 # Queue Configuration
 queue:
-  kind: Postgres
+  kind: Sqlite
   # Postgres connection URI
-  uri: {{ get_env(name="DATABASE_URL", default="postgres://loco:loco@localhost:5432/backend_test") }}
+  uri: sqlite::memory:
   # Dangerously flush all data in Redis on startup. dangerous operation, make sure that you using this flag only on dev environments or test mode
   dangerously_flush: false
 
@@ -67,7 +67,7 @@ mailer:
 # Database Configuration
 database:
   # Database connection URI
-  uri: {{ get_env(name="DATABASE_URL", default="postgres://loco:loco@localhost:5432/backend_test") }}
+  uri: sqlite::memory:
   # When enabled, the sql query will be logged.
   enable_logging: false
   # Set the timeout duration when acquiring a connection.

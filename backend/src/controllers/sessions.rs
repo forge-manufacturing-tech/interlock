@@ -1,5 +1,6 @@
 #![allow(clippy::unused_async)]
 use loco_rs::prelude::*;
+use sea_orm::prelude::DateTimeWithTimeZone;
 use serde::{Deserialize, Serialize};
 use crate::models::_entities::sessions::{ActiveModel, Entity, Model};
 
@@ -20,8 +21,31 @@ impl Params {
     }
 }
 
+#[derive(Debug, Serialize)]
+pub struct SessionResponse {
+    #[serde(with = "crate::models::i64_format")]
+    pub id: i64,
+    pub title: Option<String>,
+    pub content: Option<String>,
+    pub created_at: DateTimeWithTimeZone,
+    pub updated_at: DateTimeWithTimeZone,
+}
+
+impl From<Model> for SessionResponse {
+    fn from(m: Model) -> Self {
+        Self {
+            id: m.id,
+            title: m.title,
+            content: m.content,
+            created_at: m.created_at,
+            updated_at: m.updated_at,
+        }
+    }
+}
+
 pub async fn list(State(ctx): State<AppContext>) -> Result<Response> {
-    format::json(Entity::find().all(&ctx.db).await?)
+    let items = Entity::find().all(&ctx.db).await?;
+    format::json(items.into_iter().map(SessionResponse::from).collect::<Vec<_>>())
 }
 
 pub async fn add(State(ctx): State<AppContext>, Json(params): Json<Params>) -> Result<Response> {
@@ -29,8 +53,15 @@ pub async fn add(State(ctx): State<AppContext>, Json(params): Json<Params>) -> R
         ..Default::default()
     };
     params.update(&mut item);
-    let item = item.insert(&ctx.db).await?;
-    format::json(item)
+
+    let txn = ctx.db.begin().await?;
+    let item = item.insert(&txn).await.map_err(|e| {
+        tracing::error!("Failed to insert session: {:?}", e);
+        e
+    })?;
+    txn.commit().await?;
+
+    format::json(SessionResponse::from(item))
 }
 
 pub async fn update(
@@ -42,7 +73,7 @@ pub async fn update(
     let mut item = item.into_active_model();
     params.update(&mut item);
     let item = item.update(&ctx.db).await?;
-    format::json(item)
+    format::json(SessionResponse::from(item))
 }
 
 pub async fn remove(Path(id): Path<i64>, State(ctx): State<AppContext>) -> Result<Response> {
@@ -51,7 +82,7 @@ pub async fn remove(Path(id): Path<i64>, State(ctx): State<AppContext>) -> Resul
 }
 
 pub async fn get_one(Path(id): Path<i64>, State(ctx): State<AppContext>) -> Result<Response> {
-    format::json(load_item(&ctx, id).await?)
+    format::json(SessionResponse::from(load_item(&ctx, id).await?))
 }
 
 pub fn routes() -> Routes {
@@ -67,5 +98,8 @@ pub fn routes() -> Routes {
 
 pub async fn load_item(ctx: &AppContext, id: i64) -> Result<Model> {
     let item = Entity::find_by_id(id).one(&ctx.db).await?;
-    item.ok_or_else(|| Error::NotFound)
+    item.ok_or_else(|| {
+        tracing::error!("Session not found with ID: {}", id);
+        Error::NotFound
+    })
 }
