@@ -3,7 +3,7 @@ import { createIcons, Lock, UserPlus, Database, PlusSquare, FileCode, ChevronRig
 import { OpenAPI } from './api/generated/core/OpenAPI';
 import { ControllersAuthService } from './api/generated/services/ControllersAuthService';
 import { ControllersSessionsService } from './api/generated/services/ControllersSessionsService';
-import type { SessionResponse } from './api/generated/models/SessionResponse';
+
 
 const API_URL = import.meta.env.VITE_API_URL;
 OpenAPI.BASE = API_URL.replace(/\/api$/, '');
