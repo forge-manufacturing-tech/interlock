@@ -42,6 +42,15 @@ pub struct ResendVerificationParams {
 
 /// Register function creates a new user with the given parameters and sends a
 /// welcome email to the user
+#[utoipa::path(
+    post,
+    path = "/api/auth/register",
+    request_body = RegisterParams,
+    responses(
+        (status = 200, description = "User registered successfully"),
+        (status = 400, description = "Bad Request")
+    )
+)]
 #[debug_handler]
 async fn register(
     State(ctx): State<AppContext>,
@@ -133,6 +142,15 @@ async fn reset(State(ctx): State<AppContext>, Json(params): Json<ResetParams>) -
 }
 
 /// Creates a user login and returns a token
+#[utoipa::path(
+    post,
+    path = "/api/auth/login",
+    request_body = LoginParams,
+    responses(
+        (status = 200, description = "Login successful", body = LoginResponse),
+        (status = 401, description = "Unauthorized")
+    )
+)]
 #[debug_handler]
 async fn login(State(ctx): State<AppContext>, Json(params): Json<LoginParams>) -> Result<Response> {
     let user = match users::Model::find_by_email(&ctx.db, &params.email).await {

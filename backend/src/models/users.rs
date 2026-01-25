@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::{offset::Local, Duration};
 use loco_rs::{auth::jwt, hash, prelude::*};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use serde_json::Map;
 use uuid::Uuid;
 
@@ -10,13 +11,13 @@ pub use super::_entities::users::{self, ActiveModel, Entity, Model};
 pub const MAGIC_LINK_LENGTH: i8 = 32;
 pub const MAGIC_LINK_EXPIRATION_MIN: i8 = 5;
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct LoginParams {
     pub email: String,
     pub password: String,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct RegisterParams {
     pub email: String,
     pub password: String,
