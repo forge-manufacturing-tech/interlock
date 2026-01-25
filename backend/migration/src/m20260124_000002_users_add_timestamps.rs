@@ -1,4 +1,5 @@
 use sea_orm_migration::prelude::*;
+use sea_orm_migration::sea_orm::Statement;
 
 #[derive(DeriveMigrationName)]
 pub struct Migration;
@@ -6,31 +7,19 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
-        m.alter_table(
-            Table::alter()
-                .table(Alias::new("users"))
-                .add_column(
-                    ColumnDef::new(Alias::new("created_at"))
-                        .timestamp_with_time_zone()
-                        .not_null()
-                        .default(Expr::current_timestamp()),
-                )
-                .to_owned(),
-        )
-        .await?;
+        let db = m.get_connection();
+        
+        db.execute(Statement::from_string(
+            m.get_database_backend(),
+            r#"ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;"#.to_owned(),
+        )).await?;
 
-        m.alter_table(
-            Table::alter()
-                .table(Alias::new("users"))
-                .add_column(
-                    ColumnDef::new(Alias::new("updated_at"))
-                        .timestamp_with_time_zone()
-                        .not_null()
-                        .default(Expr::current_timestamp()),
-                )
-                .to_owned(),
-        )
-        .await
+        db.execute(Statement::from_string(
+            m.get_database_backend(),
+            r#"ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP;"#.to_owned(),
+        )).await?;
+
+        Ok(())
     }
 
     async fn down(&self, m: &SchemaManager) -> Result<(), DbErr> {
