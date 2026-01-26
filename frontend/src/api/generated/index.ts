@@ -7,6 +7,7 @@ export { CancelablePromise, CancelError } from './core/CancelablePromise';
 export { OpenAPI } from './core/OpenAPI';
 export type { OpenAPIConfig } from './core/OpenAPI';
 
+export type { BlobResponse } from './models/BlobResponse';
 export type { CreateProjectParams } from './models/CreateProjectParams';
 export type { LoginParams } from './models/LoginParams';
 export type { LoginResponse } from './models/LoginResponse';
@@ -19,5 +20,6 @@ export type { UpdateProjectParams } from './models/UpdateProjectParams';
 export type { UserSearchResponse } from './models/UserSearchResponse';
 
 export { ControllersAuthService } from './services/ControllersAuthService';
+export { ControllersBlobsService } from './services/ControllersBlobsService';
 export { ControllersProjectsService } from './services/ControllersProjectsService';
 export { ControllersSessionsService } from './services/ControllersSessionsService';

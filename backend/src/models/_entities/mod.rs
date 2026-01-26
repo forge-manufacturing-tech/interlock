@@ -5,3 +5,4 @@ pub mod users;
 pub mod sessions;
 pub mod projects;
 pub mod users_projects;
+pub mod blobs;

@@ -209,6 +209,19 @@ pub async fn remove(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<App
         }
     }
     
+    // Delete associated blobs from object store
+    let blobs = crate::models::_entities::blobs::Entity::find()
+        .filter(crate::models::_entities::blobs::Column::SessionId.eq(id))
+        .all(&ctx.db)
+        .await?;
+    
+    let storage = crate::storage::get_storage();
+    for blob in blobs {
+        if let Err(e) = storage.delete(&object_store::path::Path::from(blob.storage_key.clone())).await {
+            tracing::error!("Failed to delete blob {} from storage: {:?}", blob.id, e);
+        }
+    }
+
     item.delete(&ctx.db).await?;
     format::empty()
 }

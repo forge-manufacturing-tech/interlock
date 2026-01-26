@@ -1,5 +1,10 @@
 FROM rust:1-slim-bookworm AS chef
 WORKDIR /usr/src/app
+RUN apt-get update && apt-get install -y \
+    curl \
+    pkg-config \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN cargo install cargo-chef
 COPY . .
 

@@ -50,6 +50,7 @@ impl Hooks for App {
             .add_route(controllers::auth::routes())
             .add_route(controllers::sessions::routes())
             .add_route(controllers::projects::routes())
+            .add_route(controllers::blobs::routes())
             .add_route(controllers::openapi::routes())
     }
     async fn connect_workers(ctx: &AppContext, queue: &Queue) -> Result<()> {
