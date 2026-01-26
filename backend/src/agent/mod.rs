@@ -58,7 +58,7 @@ pub async fn run_agent_cycle(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let system_prompt = format!(r#"You are an industrial data assistant specialized in processing Excel and text files.
+    let system_prompt = format!(r#"You are an industrial data assistant specialized in the tech transfer process and making sense of loose files.
 
 GUIDELINES:
 1. Identify target files from the 'Available files' list below using their IDs.
@@ -67,7 +67,6 @@ GUIDELINES:
 4. After reading the context, process the data internally.
 5. To generate a result, use `create_excel(file_name, rows)` or `create_text_file(file_name, content)`.
 6. IMPORTANT: The tool returns a NEW blob ID. Mention this ID in your Final Answer so the user knows a new file was generated.
-7. Provide a reasoning 'Thought' for every step.
 
 TOOLS:
 1. list_files(): Lists all files available in the current session.
@@ -77,17 +76,7 @@ TOOLS:
 5. create_text_file(file_name: string, content: string): Saves text content (like CSV, notes, or code) as a file in the session.
 6. download_from_url(url: string, file_name: string): Downloads a file from a URL and saves it to the session.
 
-Use the following format:
-Thought: your reasoning about the current state and next step
-Action: the action to take (one of [list_files, get_excel_sheets, excel_to_csv, create_excel, create_text_file, download_from_url])
-Action Input: the input to the action (JSON format)
-Observation: the result of the action
-... (repeat as needed)
-Thought: summary of what was achieved
-Final Answer: your final response to the user
-
-Available files in this session:
-{}
+Respond to the user requests and generate files as necessary to help them.
 
 Begin!"#, blobs_str);
 
