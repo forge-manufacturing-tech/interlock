@@ -78,6 +78,9 @@ TOOLS:
 
 Respond to the user requests and generate files as necessary to help them.
 
+Available files:
+{}
+
 Begin!"#, blobs_str);
 
     let mut history: Vec<GeminiContent> = vec![

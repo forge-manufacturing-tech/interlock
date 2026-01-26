@@ -89,6 +89,17 @@ graph TD
 You can check your [configuration](config/development.yaml) to pick either frontend setup or server-side rendered template, and activate the relevant configuration sections.
 
 
+## Blob Storage
+
+The system supports both local filesystem and Google Cloud Storage (GCS) for storing binary large objects (blobs).
+
+### Configuration
+
+-   **Local Storage (Default)**: Used when no specific configuration is provided. Files are stored in the `storage` directory in the project root.
+-   **Google Cloud Storage**: To enable GCS, set the following environment variable:
+    -   `GOOGLE_CLOUD_BUCKET`: The name of the GCS bucket to use.
+    -   `GOOGLE_APPLICATION_CREDENTIALS`: (Optional) Path to the service account JSON key. If not provided, it attempts to use the default environment credentials.
+
 ## Getting help
 
 Check out [a quick tour](https://loco.rs/docs/getting-started/tour/) or [the complete guide](https://loco.rs/docs/getting-started/guide/).
