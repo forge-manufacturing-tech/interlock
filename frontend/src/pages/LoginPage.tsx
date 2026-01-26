@@ -48,18 +48,18 @@ export function LoginPage() {
     };
 
     return (
-        <div className="min-h-screen bg-black flex items-center justify-center p-4">
+        <div className="min-h-screen bg-industrial-steel-950 flex items-center justify-center p-4 metal-texture">
             <div className="w-full max-w-md">
-                <div className="bg-neutral-950 border border-neutral-800 p-8 rounded-lg shadow-2xl">
+                <div className="industrial-panel p-8 rounded-sm shadow-2xl scanlines">
                     <div className="mb-8 text-center">
-                        <h1 className="text-2xl font-bold text-white mb-2">Interlock</h1>
-                        <p className="text-neutral-500 text-sm">
-                            {isRegister ? 'Create your account' : 'Sign in to your account'}
+                        <h1 className="industrial-headline text-3xl mb-2">INTERLOCK</h1>
+                        <p className="text-industrial-steel-400 text-sm tracking-wide font-mono">
+                            {isRegister ? 'CREATE NEW ACCOUNT' : 'SYSTEM ACCESS'}
                         </p>
                     </div>
 
                     {error && (
-                        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/50 rounded text-red-400 text-sm">
+                        <div className="mb-4 p-3 bg-industrial-alert/10 border border-industrial-alert rounded-sm text-industrial-alert text-sm font-mono">
                             {error}
                         </div>
                     )}
@@ -67,51 +67,54 @@ export function LoginPage() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {isRegister && (
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">
-                                    Name
+                                <label className="block text-xs font-bold text-industrial-steel-300 mb-2 uppercase tracking-wider">
+                                    Operator Name
                                 </label>
                                 <input
                                     type="text"
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
-                                    className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full px-4 py-2 industrial-input rounded-sm"
                                     required={isRegister}
+                                    placeholder="Enter name"
                                 />
                             </div>
                         )}
 
                         <div>
-                            <label className="block text-sm font-medium text-neutral-400 mb-1">
-                                Email
+                            <label className="block text-xs font-bold text-industrial-steel-300 mb-2 uppercase tracking-wider">
+                                Email Address
                             </label>
                             <input
                                 type="email"
                                 value={email}
                                 onChange={(e) => setEmail(e.target.value)}
-                                className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded text-white focus:outline-none focus:border-blue-500"
+                                className="w-full px-4 py-2 industrial-input rounded-sm"
                                 required
+                                placeholder="operator@factory.com"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-neutral-400 mb-1">
-                                Password
+                            <label className="block text-xs font-bold text-industrial-steel-300 mb-2 uppercase tracking-wider">
+                                Access Code
                             </label>
                             <input
                                 type="password"
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
-                                className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded text-white focus:outline-none focus:border-blue-500"
+                                className="w-full px-4 py-2 industrial-input rounded-sm"
                                 required
+                                placeholder="••••••••"
                             />
                         </div>
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-600/50 text-white font-medium rounded transition-colors"
+                            className="w-full py-3 px-4 industrial-btn rounded-sm disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            {loading ? 'Loading...' : isRegister ? 'Register' : 'Login'}
+                            {loading ? 'PROCESSING...' : isRegister ? 'REGISTER' : 'LOGIN'}
                         </button>
                     </form>
 
@@ -121,9 +124,9 @@ export function LoginPage() {
                                 setIsRegister(!isRegister);
                                 setError('');
                             }}
-                            className="text-blue-500 hover:text-blue-400 text-sm transition-colors"
+                            className="text-industrial-copper-500 hover:text-industrial-copper-400 text-xs transition-colors uppercase tracking-wide font-mono"
                         >
-                            {isRegister ? 'Already have an account? Login' : "Don't have an account? Register"}
+                            {isRegister ? 'Access Existing Account' : 'Create New Account'}
                         </button>
                     </div>
                 </div>

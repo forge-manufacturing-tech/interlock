@@ -52,23 +52,23 @@ export function ProjectsPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-black flex items-center justify-center">
-                <div className="text-neutral-500">Loading...</div>
+            <div className="min-h-screen bg-industrial-steel-950 flex items-center justify-center">
+                <div className="text-industrial-steel-400 font-mono uppercase tracking-wider">Loading...</div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-black text-white">
+        <div className="min-h-screen bg-industrial-steel-950 text-neutral-100 metal-texture">
             {/* Header */}
-            <header className="border-b border-neutral-800 bg-neutral-950/50 backdrop-blur-sm">
+            <header className="border-b border-industrial-concrete bg-industrial-steel-900/80 backdrop-blur-sm">
                 <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-                    <h1 className="text-xl font-bold">Interlock</h1>
+                    <h1 className="industrial-headline text-2xl">INTERLOCK</h1>
                     <div className="flex items-center gap-4">
-                        <span className="text-sm text-neutral-500">{user?.email}</span>
+                        <span className="text-sm text-industrial-steel-400 font-mono">{user?.email}</span>
                         <button
                             onClick={logout}
-                            className="px-4 py-2 text-sm bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded transition-colors"
+                            className="px-4 py-2 text-xs bg-industrial-steel-800 hover:bg-industrial-steel-700 border border-industrial-concrete rounded-sm transition-colors uppercase tracking-wide font-mono"
                         >
                             Logout
                         </button>
@@ -77,15 +77,15 @@ export function ProjectsPage() {
             </header>
 
             {/* Main Content */}
-            <main className="max-w-7xl mx-auto px-6 py-8">
+            <main className="max-w-7xl mx-auto px-6 py-8 scanlines">
                 <div className="flex items-center justify-between mb-8">
                     <div>
-                        <h2 className="text-2xl font-bold mb-2">Projects</h2>
-                        <p className="text-neutral-500 text-sm">Manage your coding workspaces</p>
+                        <h2 className="industrial-headline text-2xl mb-2">PROJECTS</h2>
+                        <p className="text-industrial-steel-400 text-sm font-mono">Manage your workspaces</p>
                     </div>
                     <button
                         onClick={() => setShowCreateModal(true)}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium transition-colors"
+                        className="px-6 py-2 industrial-btn rounded-sm font-medium"
                     >
                         + New Project
                     </button>
@@ -93,9 +93,9 @@ export function ProjectsPage() {
 
                 {/* Projects Grid */}
                 {projects.length === 0 ? (
-                    <div className="p-16 border border-dashed border-neutral-800 bg-neutral-900/20 text-center rounded-lg">
-                        <p className="text-neutral-600 text-sm uppercase tracking-widest">No projects found</p>
-                        <p className="text-neutral-700 text-xs mt-2">Create your first project to get started</p>
+                    <div className="p-16 border border-dashed border-industrial-concrete bg-industrial-steel-900/20 text-center rounded-sm">
+                        <p className="text-industrial-steel-500 text-sm uppercase tracking-widest font-bold">No projects found</p>
+                        <p className="text-industrial-steel-600 text-xs mt-2 font-mono">Create your first project to get started</p>
                     </div>
                 ) : (
                     <div className="grid gap-4">
@@ -103,22 +103,22 @@ export function ProjectsPage() {
                             <div
                                 key={project.id}
                                 onClick={() => openProject(project.id)}
-                                className="group flex items-center justify-between p-6 bg-neutral-900/40 border border-neutral-800 hover:border-blue-500/50 hover:bg-neutral-900/80 rounded-lg cursor-pointer transition-all"
+                                className="industrial-card group flex items-center justify-between p-6 rounded-sm cursor-pointer"
                             >
                                 <div className="flex items-center gap-4">
-                                    <div className="p-3 bg-neutral-950 border border-neutral-800 group-hover:border-blue-500/30 rounded">
-                                        <svg className="w-6 h-6 text-neutral-500 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <div className="p-3 bg-industrial-steel-950 border border-industrial-concrete group-hover:border-industrial-copper-500/50 rounded-sm transition-colors">
+                                        <svg className="w-6 h-6 text-industrial-steel-500 group-hover:text-industrial-copper-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                         </svg>
                                     </div>
                                     <div>
-                                        <h3 className="text-lg font-bold text-neutral-200 group-hover:text-white">{project.name}</h3>
-                                        <p className="text-sm text-neutral-600">
+                                        <h3 className="text-lg font-bold text-neutral-200 group-hover:text-industrial-copper-400 transition-colors tracking-wide">{project.name}</h3>
+                                        <p className="text-sm text-industrial-steel-500 font-mono">
                                             {project.description || 'No description'}
                                         </p>
                                     </div>
                                 </div>
-                                <svg className="w-5 h-5 text-neutral-700 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg className="w-5 h-5 text-industrial-steel-600 group-hover:text-industrial-copper-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                                 </svg>
                             </div>
@@ -130,50 +130,52 @@ export function ProjectsPage() {
             {/* Create Project Modal */}
             {showCreateModal && (
                 <div
-                    className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50"
+                    className="fixed inset-0 bg-black/90 flex items-center justify-center p-4 z-50 backdrop-blur-sm"
                     onClick={() => setShowCreateModal(false)}
                 >
                     <div
-                        className="bg-neutral-950 border border-neutral-800 rounded-lg p-6 w-full max-w-md"
+                        className="industrial-panel rounded-sm p-6 w-full max-w-md"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <h3 className="text-xl font-bold mb-4">Create New Project</h3>
+                        <h3 className="industrial-headline text-xl mb-4">Create New Project</h3>
                         <form onSubmit={handleCreateProject} className="space-y-4">
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">
+                                <label className="block text-xs font-bold text-industrial-steel-300 mb-2 uppercase tracking-wider">
                                     Project Name
                                 </label>
                                 <input
                                     type="text"
                                     value={newProjectName}
                                     onChange={(e) => setNewProjectName(e.target.value)}
-                                    className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded text-white focus:outline-none focus:border-blue-500"
+                                    className="w-full px-4 py-2 industrial-input rounded-sm"
                                     required
                                     autoFocus
+                                    placeholder="Enter project name"
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-neutral-400 mb-1">
+                                <label className="block text-xs font-bold text-industrial-steel-300 mb-2 uppercase tracking-wider">
                                     Description (optional)
                                 </label>
                                 <textarea
                                     value={newProjectDescription}
                                     onChange={(e) => setNewProjectDescription(e.target.value)}
-                                    className="w-full px-4 py-2 bg-neutral-900 border border-neutral-800 rounded text-white focus:outline-none focus:border-blue-500 resize-none"
+                                    className="w-full px-4 py-2 industrial-input rounded-sm resize-none"
                                     rows={3}
+                                    placeholder="Enter description"
                                 />
                             </div>
-                            <div className="flex gap-3">
+                            <div className="flex gap-3 pt-2">
                                 <button
                                     type="button"
                                     onClick={() => setShowCreateModal(false)}
-                                    className="flex-1 px-4 py-2 bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded transition-colors"
+                                    className="flex-1 px-4 py-2 bg-industrial-steel-800 hover:bg-industrial-steel-700 border border-industrial-concrete rounded-sm transition-colors uppercase tracking-wide text-sm font-bold"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded transition-colors"
+                                    className="flex-1 px-4 py-2 industrial-btn rounded-sm"
                                 >
                                     Create
                                 </button>

@@ -1,19 +1,227 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-* {
+
+
+/* Global styles */
+body {
+  background-color: #1f2228;
+  color: #ffffff;
+  font-family: 'Inter', system-ui, sans-serif;
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #ffffff;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* Custom scrollbar - Industrial style */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #13151a;
+  border-left: 1px solid #2a2d32;
+}
+
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #3a3d42 0%, #2a2d32 100%);
+  border-radius: 0;
+  border: 1px solid #4a4e54;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #cc6731 0%, #b85525 100%);
+  box-shadow: 0 0 10px rgba(204, 103, 49, 0.3);
+}
+
+/* Industrial Input - Steel panel look */
+.industrial-input {
+  background-color: #13151a;
+  border: 1px solid #3a3d42;
+  color: #f5f5f5;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  transition: all 0.2s ease;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.industrial-input:focus {
+  border-color: #cc6731;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(204, 103, 49, 0.1), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.industrial-input::placeholder {
+  color: #6c757d;
+}
+
+/* Industrial Button - Metal panel with rivets effect */
+.industrial-btn {
+  background-color: #2b2f35;
+  border: 2px solid #cc6731;
+  color: #cc6731;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  position: relative;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.industrial-btn:hover {
+  background-color: #cc6731 !important;
+  color: #0a0b0e !important;
+  border-color: #b85525 !important;
+  box-shadow: 0 0 20px rgba(204, 103, 49, 0.4), 0 4px 6px rgba(0, 0, 0, 0.3);
+  transform: translateY(-1px);
+}
+
+.industrial-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 0 10px rgba(204, 103, 49, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Glass Metal Panel - Industrial version */
+.industrial-panel {
+  background-color: rgba(19, 21, 26, 0.9);
+  border: 1px solid #3a3d42;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Metal Card with rivet effect */
+.industrial-card {
+  background-color: #1f2228;
+  border: 1px solid #2a2d32;
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.industrial-card::before,
+.industrial-card::after {
+  content: '';
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  background: radial-gradient(circle, #4a4e54 0%, #2a2d32 70%);
+  border-radius: 50%;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.industrial-card::before {
+  top: 8px;
+  left: 8px;
+}
+
+.industrial-card::after {
+  top: 8px;
+  right: 8px;
+}
+
+.industrial-card:hover {
+  border-color: rgba(204, 103, 49, 0.5);
+  background-color: rgba(43, 47, 53, 0.8);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 0 20px rgba(204, 103, 49, 0.1);
+  transform: translateY(-2px);
+}
+
+/* Copper Glow effect */
+.copper-glow {
+  box-shadow: 0 0 20px rgba(204, 103, 49, 0.3);
+}
+
+.copper-glow-strong {
+  box-shadow: 0 0 30px rgba(204, 103, 49, 0.5), 0 0 60px rgba(204, 103, 49, 0.2);
+}
+
+/* Scanline effect - CRT industrial monitor aesthetic */
+.scanlines {
+  position: relative;
+  overflow: hidden;
+}
+
+.scanlines::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(to bottom,
+      rgba(255, 255, 255, 0) 50%,
+      rgba(0, 0, 0, 0.15) 50%);
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0.1;
+}
+
+/* Metal texture overlay */
+.metal-texture {
+  position: relative;
+}
+
+.metal-texture::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background:
+    repeating-linear-gradient(0deg,
+      rgba(255, 255, 255, 0.03) 0px,
+      rgba(0, 0, 0, 0.03) 1px,
+      rgba(255, 255, 255, 0.03) 2px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Warning stripe pattern */
+.warning-stripe {
+  background: repeating-linear-gradient(45deg,
+      #ffc107,
+      #ffc107 10px,
+      #000 10px,
+      #000 20px);
+}
+
+/* Copper text glow */
+.text-copper-glow {
+  color: #cc6731;
+  text-shadow: 0 0 10px rgba(204, 103, 49, 0.5);
+}
+
+/* Industrial headline styling */
+.industrial-headline {
+  color: #cc6731 !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  display: block;
+}
+
+/* Mono text for data/technical info */
+.industrial-mono {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: #a8b0b8;
 }
