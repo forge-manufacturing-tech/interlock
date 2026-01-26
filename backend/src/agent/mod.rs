@@ -195,11 +195,13 @@ Begin!"#, blobs_str);
                 }],
             });
         } else {
-            // If no action and no final answer, the AI might be stuck or just chatting. 
-            // We'll allow one more cycle or break. Let's break for now to avoid loops.
-            break;
+            // If no action and no final answer, the AI is likely just chatting or asking a clarifying question.
+            // valid response for the user.
+            return Ok(ai_text);
         }
     }
 
-    Ok("Task incomplete. Please provide more clear instructions or try again.".to_string())
+    // This part should theoretically be unreachable now if we return in all paths, 
+    // but just in case the loop finishes exactly at 10 without return:
+    Err(anyhow::anyhow!("Agent loop limit exceeded"))
 }
