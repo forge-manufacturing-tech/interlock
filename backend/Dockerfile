@@ -6,9 +6,9 @@ RUN apt-get update && apt-get install -y \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 RUN cargo install cargo-chef
-COPY . .
 
 FROM chef AS planner
+COPY . .
 RUN cargo chef prepare --recipe-path recipe.json
 
 FROM chef AS builder

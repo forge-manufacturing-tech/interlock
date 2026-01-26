@@ -3,6 +3,8 @@ pub mod tools;
 use loco_rs::prelude::*;
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
+use sea_orm::{EntityTrait, QueryFilter, QueryOrder, ColumnTrait};
+use crate::models::_entities::messages;
 use crate::agent::tools::{excel_to_csv, create_excel, list_files, get_excel_sheets, create_text_file, download_from_url};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -43,7 +45,7 @@ pub struct GeminiCandidate {
 pub async fn run_agent_cycle(
     ctx: &AppContext,
     session_id: Uuid,
-    user_query: &str,
+    _user_query: &str,
     api_key: &str,
     blobs: Vec<(String, String)>,
 ) -> anyhow::Result<String> {
@@ -83,14 +85,41 @@ Available files:
 
 Begin!"#, blobs_str);
 
-    let mut history: Vec<GeminiContent> = vec![
-        GeminiContent {
-            role: "user".to_string(),
+    let messages = messages::Entity::find()
+        .filter(messages::Column::SessionId.eq(session_id))
+        .order_by_asc(messages::Column::CreatedAt)
+        .all(&ctx.db)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to fetch messages: {}", e))?;
+
+    let mut history: Vec<GeminiContent> = Vec::new();
+
+    // 1. System Prompt
+    history.push(GeminiContent {
+        role: "user".to_string(),
+        parts: vec![GeminiPart {
+            text: Some(system_prompt),
+        }],
+    });
+
+    // 2. Model Acknowledgement (to separate system instructions from chat history)
+    history.push(GeminiContent {
+        role: "model".to_string(),
+        parts: vec![GeminiPart {
+            text: Some("Understood. I am ready to process requests based on these files and guidelines.".to_string()),
+        }],
+    });
+
+    // 3. Chat Context
+    for msg in messages {
+        let role = if msg.role == "assistant" { "model" } else { "user" };
+        history.push(GeminiContent {
+            role: role.to_string(),
             parts: vec![GeminiPart {
-                text: Some(format!("{}\n\nQuestion: {}", system_prompt, user_query)),
+                text: Some(msg.content),
             }],
-        }
-    ];
+        });
+    }
 
     for _ in 0..10 { // Increased cycles for more complex tasks
         let request = GeminiRequest {
