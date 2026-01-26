@@ -4,6 +4,7 @@
 /* eslint-disable */
 export type Params = {
     content?: string | null;
+    project_id?: string | null;
     title?: string | null;
 };
 

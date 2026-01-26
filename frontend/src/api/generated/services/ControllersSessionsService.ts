@@ -9,13 +9,19 @@ import { OpenAPI } from '../core/OpenAPI';
 import { request as __request } from '../core/request';
 export class ControllersSessionsService {
     /**
-     * @returns SessionResponse List all sessions
+     * @param projectId
+     * @returns SessionResponse List sessions
      * @throws ApiError
      */
-    public static list(): CancelablePromise<Array<SessionResponse>> {
+    public static list(
+        projectId?: string | null,
+    ): CancelablePromise<Array<SessionResponse>> {
         return __request(OpenAPI, {
             method: 'GET',
             url: '/api/sessions',
+            query: {
+                'project_id': projectId,
+            },
         });
     }
     /**

@@ -42,6 +42,7 @@ fn test_serialization() {
         id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap(),
         title: Some("test".to_string()),
         content: Some("content".to_string()),
+        project_id: Some(1),
     };
 
     let json = serde_json::to_string(&item).unwrap();
