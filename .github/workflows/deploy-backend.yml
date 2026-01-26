@@ -95,6 +95,8 @@ jobs:
         uses: google-github-actions/setup-gcloud@v2
 
       - name: Deploy to Cloud Run
+        env:
+          GCP_SA_KEY_JSON: ${{ secrets.GCP_SA_KEY }}
         run: |
           gcloud run deploy $SERVICE_NAME \
             --image us-central1-docker.pkg.dev/$PROJECT_ID/$SERVICE_NAME/$SERVICE_NAME:${{ github.sha }} \
@@ -107,6 +109,6 @@ jobs:
             --set-env-vars JWT_SECRET="${{ secrets.JWT_SECRET }}" \
             --set-env-vars GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}" \
             --set-env-vars GOOGLE_CLOUD_BUCKET="${{ secrets.GOOGLE_CLOUD_BUCKET }}" \
-            --set-env-vars GCP_SA_KEY='${{ secrets.GCP_SA_KEY }}' \
+            --set-env-vars "^;^GCP_SA_KEY=$GCP_SA_KEY_JSON" \
             --set-env-vars GCP_PROJECT_ID="${{ secrets.GCP_PROJECT_ID }}" \
             --set-env-vars DB_CONNECT_TIMEOUT=5000
