@@ -62,14 +62,14 @@ jobs:
         env:
           DATABASE_URL: postgres://loco:loco@localhost:5432/interlock_local
         run: |
-          cargo loco db migrate -e local
+          cargo loco db migrate
 
       - name: Start backend server
         working-directory: backend
         env:
           DATABASE_URL: postgres://loco:loco@localhost:5432/interlock_local
         run: |
-          cargo loco start -e local &
+          cargo loco start &
           sleep 10
 
       - name: Run Rust integration tests
