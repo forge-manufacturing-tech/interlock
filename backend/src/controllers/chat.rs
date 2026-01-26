@@ -1,5 +1,5 @@
 use loco_rs::prelude::*;
-use sea_orm::{ActiveValue, EntityTrait, QueryFilter, ColumnTrait};
+use sea_orm::{ActiveValue, EntityTrait, QueryFilter, ColumnTrait, QueryOrder};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use utoipa::ToSchema;
@@ -124,6 +124,7 @@ pub async fn list_messages(
     
     let messages = Entity::find()
         .filter(crate::models::_entities::messages::Column::SessionId.eq(session_id))
+        .order_by_asc(crate::models::_entities::messages::Column::CreatedAt)
         .all(&ctx.db)
         .await?;
         
