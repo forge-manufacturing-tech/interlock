@@ -6,6 +6,7 @@ export type SessionResponse = {
     content?: string | null;
     created_at: string;
     id: string;
+    project_id?: string | null;
     title?: string | null;
     updated_at: string;
 };

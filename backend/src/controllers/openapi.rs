@@ -12,6 +12,13 @@ use crate::{controllers, models, views};
         controllers::sessions::update,
         controllers::sessions::remove,
         controllers::sessions::get_one,
+        controllers::projects::list,
+        controllers::projects::create,
+        controllers::projects::get_one,
+        controllers::projects::update,
+        controllers::projects::remove,
+        controllers::projects::share,
+        controllers::projects::search_users,
     ),
     components(
         schemas(
@@ -20,6 +27,11 @@ use crate::{controllers, models, views};
             views::auth::LoginResponse,
             controllers::sessions::Params,
             controllers::sessions::SessionResponse,
+            controllers::projects::CreateProjectParams,
+            controllers::projects::UpdateProjectParams,
+            controllers::projects::ShareProjectParams,
+            controllers::projects::ProjectResponse,
+            controllers::projects::UserSearchResponse,
         )
     ),
 )]

@@ -1,15 +1,24 @@
 #![allow(clippy::unused_async)]
 use loco_rs::prelude::*;
-use sea_orm::prelude::DateTimeWithTimeZone;
+use sea_orm::{prelude::DateTimeWithTimeZone, QuerySelect, JoinType, PaginatorTrait, RelationTrait};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use utoipa::ToSchema;
-use crate::models::_entities::sessions::{ActiveModel, Entity, Model};
+use utoipa::{ToSchema, IntoParams};
+use crate::models::{
+    _entities::{sessions::{ActiveModel, Entity, Model}, users_projects},
+    users,
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct Params {
     pub title: Option<String>,
     pub content: Option<String>,
+    pub project_id: Option<Uuid>,
+}
+
+#[derive(Clone, Debug, Deserialize, IntoParams)]
+pub struct ListParams {
+    pub project_id: Option<Uuid>,
 }
 
 impl Params {
@@ -20,6 +29,9 @@ impl Params {
         if let Some(content) = &self.content {
             item.content = Set(Some(content.clone()));
         }
+        if let Some(project_id) = &self.project_id {
+            item.project_id = Set(Some(*project_id));
+        }
     }
 }
 
@@ -28,6 +40,7 @@ pub struct SessionResponse {
     pub id: Uuid,
     pub title: Option<String>,
     pub content: Option<String>,
+    pub project_id: Option<Uuid>,
     #[schema(value_type = String, format = Date)]
     pub created_at: DateTimeWithTimeZone,
     #[schema(value_type = String, format = Date)]
@@ -40,6 +53,7 @@ impl From<Model> for SessionResponse {
             id: m.id,
             title: m.title,
             content: m.content,
+            project_id: m.project_id,
             created_at: m.created_at,
             updated_at: m.updated_at,
         }
@@ -49,12 +63,42 @@ impl From<Model> for SessionResponse {
 #[utoipa::path(
     get,
     path = "/api/sessions",
+    params(ListParams),
     responses(
-        (status = 200, description = "List all sessions", body = Vec<SessionResponse>)
+        (status = 200, description = "List sessions", body = Vec<SessionResponse>)
     )
 )]
-pub async fn list(State(ctx): State<AppContext>) -> Result<Response> {
-    let items = Entity::find().all(&ctx.db).await?;
+pub async fn list(
+    auth: auth::JWT,
+    State(ctx): State<AppContext>,
+    Query(params): Query<ListParams>,
+) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid)
+        .await
+        .map_err(|_| Error::Unauthorized("User not found".into()))?;
+    
+    let mut query = Entity::find();
+
+    if let Some(project_id) = params.project_id {
+        // Check access to this project
+        let has_access = users_projects::Entity::find()
+            .filter(users_projects::Column::UserId.eq(user.id))
+            .filter(users_projects::Column::ProjectId.eq(project_id))
+            .count(&ctx.db)
+            .await? > 0;
+            
+        if !has_access {
+            return unauthorized("User does not have access to this project");
+        }
+        query = query.filter(crate::models::_entities::sessions::Column::ProjectId.eq(project_id));
+    } else {
+         query = query
+            .join(JoinType::InnerJoin, crate::models::_entities::sessions::Relation::Project.def())
+            .join(JoinType::InnerJoin, crate::models::_entities::projects::Relation::UsersProjects.def())
+            .filter(crate::models::_entities::users_projects::Column::UserId.eq(user.id));
+    }
+    
+    let items = query.all(&ctx.db).await?;
     format::json(items.into_iter().map(SessionResponse::from).collect::<Vec<_>>())
 }
 
@@ -66,7 +110,24 @@ pub async fn list(State(ctx): State<AppContext>) -> Result<Response> {
         (status = 200, description = "Session created", body = SessionResponse)
     )
 )]
-pub async fn add(State(ctx): State<AppContext>, Json(params): Json<Params>) -> Result<Response> {
+pub async fn add(auth: auth::JWT, State(ctx): State<AppContext>, Json(params): Json<Params>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid)
+        .await
+        .map_err(|_| Error::Unauthorized("User not found".into()))?;
+    
+    if let Some(project_id) = params.project_id {
+        let has_access = users_projects::Entity::find()
+            .filter(users_projects::Column::UserId.eq(user.id))
+            .filter(users_projects::Column::ProjectId.eq(project_id))
+            .count(&ctx.db)
+            .await? > 0;
+        if !has_access {
+             return unauthorized("User does not have access to this project");
+        }
+    } else {
+         return bad_request("project_id is required");
+    }
+
     let mut item = ActiveModel {
         ..Default::default()
     };
@@ -96,10 +157,26 @@ pub async fn add(State(ctx): State<AppContext>, Json(params): Json<Params>) -> R
 )]
 pub async fn update(
     Path(id): Path<Uuid>,
+    auth: auth::JWT,
     State(ctx): State<AppContext>,
     Json(params): Json<Params>,
 ) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    
     let item = load_item(&ctx, id).await?;
+    
+    // Check access via project_id
+    if let Some(project_id) = item.project_id {
+          let has_access = users_projects::Entity::find()
+            .filter(users_projects::Column::UserId.eq(user.id))
+            .filter(users_projects::Column::ProjectId.eq(project_id))
+            .count(&ctx.db)
+            .await? > 0;
+        if !has_access {
+             return unauthorized("Authorized access required");
+        }
+    }
+
     let mut item = item.into_active_model();
     params.update(&mut item);
     let item = item.update(&ctx.db).await?;
@@ -117,8 +194,22 @@ pub async fn update(
         (status = 404, description = "Session not found")
     )
 )]
-pub async fn remove(Path(id): Path<Uuid>, State(ctx): State<AppContext>) -> Result<Response> {
-    load_item(&ctx, id).await?.delete(&ctx.db).await?;
+pub async fn remove(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let item = load_item(&ctx, id).await?;
+    
+     if let Some(project_id) = item.project_id {
+          let has_access = users_projects::Entity::find()
+            .filter(users_projects::Column::UserId.eq(user.id))
+            .filter(users_projects::Column::ProjectId.eq(project_id))
+            .count(&ctx.db)
+            .await? > 0;
+        if !has_access {
+             return unauthorized("Authorized access required");
+        }
+    }
+    
+    item.delete(&ctx.db).await?;
     format::empty()
 }
 
@@ -133,8 +224,22 @@ pub async fn remove(Path(id): Path<Uuid>, State(ctx): State<AppContext>) -> Resu
         (status = 404, description = "Session not found")
     )
 )]
-pub async fn get_one(Path(id): Path<Uuid>, State(ctx): State<AppContext>) -> Result<Response> {
-    format::json(SessionResponse::from(load_item(&ctx, id).await?))
+pub async fn get_one(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let item = load_item(&ctx, id).await?;
+
+    if let Some(project_id) = item.project_id {
+          let has_access = users_projects::Entity::find()
+            .filter(users_projects::Column::UserId.eq(user.id))
+            .filter(users_projects::Column::ProjectId.eq(project_id))
+            .count(&ctx.db)
+            .await? > 0;
+        if !has_access {
+             return unauthorized("Authorized access required");
+        }
+    }
+    
+    format::json(SessionResponse::from(item))
 }
 
 pub fn routes() -> Routes {

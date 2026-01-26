@@ -76,8 +76,15 @@ async fn register(
         .await?;
 
     AuthMailer::send_welcome(&ctx, &user).await?;
+    AuthMailer::send_welcome(&ctx, &user).await?;
 
-    format::json(())
+    // Generate JWT token for the newly registered user (same as login)
+    let jwt_secret = ctx.config.get_jwt_config()?;
+    let token = user
+        .generate_jwt(&jwt_secret.secret, jwt_secret.expiration)
+        .or_else(|_| unauthorized("Failed to generate token"))?;
+
+    format::json(LoginResponse::new(&user, &token))
 }
 
 /// Verify register user. if the user not verified his email, he can't login to

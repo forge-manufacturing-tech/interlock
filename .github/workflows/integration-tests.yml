@@ -1,0 +1,68 @@
+name: Integration Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/integration-tests.yml'
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: loco
+          POSTGRES_PASSWORD: loco
+          POSTGRES_DB: interlock_local
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            backend/target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://loco:loco@localhost:5432/interlock_local
+        run: |
+          cargo loco db migrate -e local
+
+      - name: Start backend server
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://loco:loco@localhost:5432/interlock_local
+        run: |
+          cargo loco start -e local &
+          sleep 10
+
+      - name: Run integration tests
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://loco:loco@localhost:5432/interlock_local
+        run: |
+          cargo test --test auth_tests --test project_tests --test session_tests -- --test-threads=1
