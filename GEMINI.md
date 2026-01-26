@@ -22,9 +22,19 @@ If you are a new Antigravity instance working on this repository, you **MUST** f
      - This avoids JavaScript number precision issues and is the standard pattern in this codebase
      - Example: Sessions and Projects both use UUID primary keys
 7. **Integration Tests**:
-     - To run backend integration tests (which run against a locally running API):
-         1. Ensure backend is running: `cargo loco start -e local`
-         2. In `backend/`: `cargo test --test auth_tests --test project_tests --test session_tests -- --test-threads=1`
-     - Individual test suites can be run with: `cargo test --test auth_tests`, `cargo test --test project_tests`, or `cargo test --test session_tests`
-     - These tests verify the auth flow, project CRUD, session management, and authorization.
-     - **Note**: These are separate from the existing unit tests in `tests/models/` and `tests/requests/`
+     - **Backend Tests** (Rust integration tests):
+         - To run backend integration tests (which run against a locally running API):
+             1. Ensure backend is running: `cargo loco start -e local`
+             2. In `backend/`: `cargo test --test auth_tests --test project_tests --test session_tests -- --test-threads=1`
+         - Individual test suites can be run with: `cargo test --test auth_tests`, `cargo test --test project_tests`, or `cargo test --test session_tests`
+         - These tests verify the auth flow, project CRUD, session management, and authorization
+         - **Note**: These are separate from the existing unit tests in `tests/models/` and `tests/requests/`
+     - **Frontend Tests** (Cypress E2E tests):
+         - To run frontend integration tests (which run against a locally running frontend and backend):
+             1. Ensure backend is running: `cargo loco start -e local` (in `backend/`)
+             2. Ensure frontend is running: `npm run dev` (in `frontend/`)
+             3. In `frontend/`: `npm run test` (runs Cypress in headless mode)
+             4. Alternatively: `npm run test:open` (opens Cypress UI for interactive testing)
+         - Tests are located in `frontend/cypress/e2e/`
+         - These tests verify end-to-end user workflows including authentication, session creation, and UI interactions
+     - **CI/CD**: Both backend and frontend integration tests run automatically on every pull request via GitHub Actions (`.github/workflows/integration-tests.yml`)

@@ -2,11 +2,11 @@ describe('Sessions Management', () => {
     const password = 'TestPassword123!'
     let projectName: string
 
-    before(() => {
+    beforeEach(() => {
         // Register with unique email for this test suite
         const email = `test-sessions-${Date.now()}@example.com`
         projectName = `Session Test Project ${Date.now()}`
-        
+
         // Setup: Register, login, and create a project
         cy.visit('/login')
         cy.contains("Don't have an account?").click()
@@ -14,17 +14,17 @@ describe('Sessions Management', () => {
         cy.get('input[type="email"]').type(email)
         cy.get('input[type="password"]').type(password)
         cy.get('button[type="submit"]').click()
-        
+
         // Wait for redirect
         cy.url({ timeout: 20000 }).should('eq', 'http://localhost:3000/')
         cy.contains('Projects', { timeout: 20000 }).should('be.visible')
         cy.contains(/no projects found/i, { timeout: 10000 })
-        
+
         cy.contains('+ New Project', { timeout: 10000 }).click()
         cy.get('input[type="text"]').first().type(projectName)
         cy.contains('button', 'Create').click()
         cy.contains(projectName, { timeout: 10000 }).click()
-        
+
         // Wait for sessions page to load
         cy.url({ timeout: 10000 }).should('include', '/projects/')
         cy.contains(/no sessions yet/i, { timeout: 10000 })
