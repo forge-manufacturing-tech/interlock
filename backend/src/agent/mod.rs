@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use sea_orm::{EntityTrait, QueryFilter, QueryOrder, ColumnTrait};
 use crate::models::_entities::messages;
 use crate::agent::tools::{excel_to_csv, create_excel, list_files, get_excel_sheets, create_text_file, download_from_url};
+use regex::Regex;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GeminiPart {
@@ -30,6 +31,8 @@ pub struct GeminiRequest {
 #[serde(rename_all = "camelCase")]
 pub struct GenerationConfig {
     pub stop_sequences: Vec<String>,
+    pub max_output_tokens: Option<i32>,
+    pub temperature: Option<f32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,30 +63,53 @@ pub async fn run_agent_cycle(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let system_prompt = format!(r#"You are an industrial data assistant specialized in the tech transfer process and making sense of loose files.
+    let system_prompt = format!(r#"You are an industrial data assistant specialized in processing BOMs (Bill of Materials) and technical files.
+
+Available files in this session:
+{}
 
 GUIDELINES:
-1. Identify target files from the 'Available files' list below using their IDs.
-2. ALWAYS use `excel_to_csv(blob_id, sheet_name)` to read the contents of an Excel file before attempting to process it. You cannot "see" the file otherwise.
-3. If you need to know the sheet names first, use `get_excel_sheets(blob_id)`.
-4. After reading the context, process the data internally.
-5. To generate a result, use `create_excel(file_name, rows)` or `create_text_file(file_name, content)`.
-6. IMPORTANT: The tool returns a NEW blob ID. Mention this ID in your Final Answer so the user knows a new file was generated.
+1. You are an AGENT running in a ReAct (Reasoning + Acting) loop.
+2. You must achieve the user's goal by using the available tools.
+3. You cannot "see" file contents directly. You MUST use tools like `excel_to_csv` (for Excel) or `read_file` (if text) to inspect them.
+4. When you create a result file (Excel or Text), you MUST output a "Final Answer" telling the user the file name and that it is ready.
+
+RESPONSE FORMAT:
+You MUST format your output strictly as follows:
+
+Thought: [Your reasoning about what to do next]
+Action: [The exact name of the tool to use]
+Action Input: [A valid JSON object containing the arguments, and ONLY the JSON object]
+
+OR, if you are done:
+
+Final Answer: [Your response to the user, summarizing what you did]
 
 TOOLS:
 1. list_files(): Lists all files available in the current session.
 2. get_excel_sheets(blob_id: string): Returns a list of sheet names in an Excel file.
 3. excel_to_csv(blob_id: string, sheet_name: string?): Converts a specific sheet of an Excel file to CSV text.
-4. create_excel(file_name: string, rows: string[][]): Creates a new Excel file and saves it to the session.
-5. create_text_file(file_name: string, content: string): Saves text content (like CSV, notes, or code) as a file in the session.
-6. download_from_url(url: string, file_name: string): Downloads a file from a URL and saves it to the session.
+4. create_excel(file_name: string, rows: string[][]): Creates a new Excel file. 'rows' must be a 2D array of strings.
+5. create_text_file(file_name: string, content: string): Saves text content as a file.
+6. download_from_url(url: string, file_name: string): Downloads a file from a URL.
 
-Respond to the user requests and generate files as necessary to help them.
+EXAMPLES:
 
-Available files:
-{}
+Example 1 (Checking a file):
+Thought: I need to see what's in the uploaded BOM file to understand the column structure.
+Action: excel_to_csv
+Action Input: {{ "blob_id": "uuid-of-file", "sheet_name": null }}
 
-Begin!"#, blobs_str);
+Example 2 (Creating result):
+Thought: I have processed the data. Now I will save the standardized BOM.
+Action: create_excel
+Action Input: {{ "file_name": "Standardized_BOM.xlsx", "rows": [["Part", "Qty"], ["A-1", "10"]] }}
+
+Example 3 (Done):
+Final Answer: I have created the standardized file 'Standardized_BOM.xlsx' with the requested columns.
+
+Begin!
+"#, blobs_str);
 
     let messages = messages::Entity::find()
         .filter(messages::Column::SessionId.eq(session_id))
@@ -102,11 +128,11 @@ Begin!"#, blobs_str);
         }],
     });
 
-    // 2. Model Acknowledgement (to separate system instructions from chat history)
+    // 2. Model Acknowledgement
     history.push(GeminiContent {
         role: "model".to_string(),
         parts: vec![GeminiPart {
-            text: Some("Understood. I am ready to process requests based on these files and guidelines.".to_string()),
+            text: Some("Understood. I will interpret the user's request and use the tools step-by-step.".to_string()),
         }],
     });
 
@@ -121,11 +147,21 @@ Begin!"#, blobs_str);
         });
     }
 
-    for _ in 0..10 { // Increased cycles for more complex tasks
+    // Regex for parsing using multi-line mode
+    // Captures "Action: <name>" and "Action Input: <json>"
+    let action_regex = Regex::new(r"(?m)^Action:\s*(?P<action>\w+)\s*$").unwrap();
+    // Input regex tries to capture the JSON blob following Action Input:
+    // We'll look for "Action Input:" and then take everything until the end or next observation/stop.
+    // However, simplest is to split by "Action Input:" and parse the remainder.
+    
+    for cycle in 0..15 {
+        println!("Cycle {}/15...", cycle + 1);
         let request = GeminiRequest {
             contents: history.clone(),
             generation_config: Some(GenerationConfig {
                 stop_sequences: vec!["Observation:".to_string()],
+                max_output_tokens: Some(4096),
+                temperature: Some(0.0), // constant 0 temp for deterministic tool use
             }),
         };
 
@@ -149,72 +185,134 @@ Begin!"#, blobs_str);
             .and_then(|p| p.text.clone())
             .ok_or_else(|| anyhow::anyhow!("Empty response from Gemini. Body: {}", response_text))?;
 
-        println!("AI Thought: {}", ai_text);
+        // Cleanup: Trim whitespace
+        let ai_text_clean = ai_text.trim();
+        println!("AI Thought: {}", ai_text_clean);
         
         history.push(GeminiContent {
             role: "model".to_string(),
             parts: vec![GeminiPart {
-                text: Some(ai_text.clone()),
+                text: Some(ai_text_clean.to_string()),
             }],
         });
 
-        if ai_text.contains("Final Answer:") {
-            return Ok(ai_text);
+        if ai_text_clean.contains("Final Answer:") {
+            return Ok(ai_text_clean.to_string());
         }
 
-        let action_line_opt = ai_text.lines().find(|l: &&str| l.starts_with("Action:"));
-        let input_line_opt = ai_text.lines().find(|l: &&str| l.starts_with("Action Input:"));
-
-        if let (Some(action_line), Some(input_line)) = (action_line_opt, input_line_opt) {
-            let full_action = action_line.replace("Action:", "").trim().to_string();
-            // Fuzzy match: take the first word as the action name
-            let action = full_action.split_whitespace().next().unwrap_or("").to_string();
+        // Parsing Logic
+        // 1. Find Action
+        if let Some(caps) = action_regex.captures(ai_text_clean) {
+            let action = caps.name("action").unwrap().as_str().to_string();
             
-            let input_str_owned = input_line.replace("Action Input:", "");
-            let input_str = input_str_owned.trim();
-            let input_val: serde_json::Value = serde_json::from_str(input_str)
-                .map_err(|e| anyhow::anyhow!("Failed to parse Action Input JSON: {}. Input was: {}", e, input_str))?;
+            // 2. Find Input
+            // We split manually because regex across newlines for unknown JSON content is tricky
+            let parts: Vec<&str> = ai_text_clean.split("Action Input:").collect();
+            if parts.len() < 2 {
+                // Found Action but no Input
+                let observation = "Error: Found 'Action:' but missing 'Action Input:'. Please provide the arguments in JSON format.";
+                 history.push(GeminiContent {
+                    role: "user".to_string(),
+                    parts: vec![GeminiPart { text: Some(format!("Observation: {}", observation)) }],
+                });
+                continue;
+            }
+
+            let input_raw = parts.last().unwrap().trim();
+            // Remove markdown code blocks if present (```json ... ```)
+            let input_clean = input_raw.trim_matches('`').trim();
+            let input_clean = if input_clean.starts_with("json") {
+                &input_clean[4..]
+            } else {
+                input_clean
+            }.trim();
+
+            let input_val: serde_json::Value = match serde_json::from_str(input_clean) {
+                Ok(v) => v,
+                Err(e) => {
+                     let observation = format!("Error: Failed to parse JSON arguments: {}. Ensure 'Action Input' is valid JSON.", e);
+                     history.push(GeminiContent {
+                        role: "user".to_string(),
+                        parts: vec![GeminiPart { text: Some(format!("Observation: {}", observation)) }],
+                    });
+                    continue;
+                }
+            };
 
             let observation = match action.as_str() {
                 "list_files" => {
                     list_files(session_id, ctx).await?
                 }
                 "get_excel_sheets" => {
-                    let blob_id_str = input_val["blob_id"].as_str().ok_or_else(|| anyhow::anyhow!("Missing blob_id"))?;
-                    let blob_id = Uuid::parse_str(blob_id_str)?;
-                    let sheets = get_excel_sheets(blob_id, ctx).await?;
-                    format!("Sheets: {:?}", sheets)
+                    if let Some(blob_id_str) = input_val["blob_id"].as_str() {
+                         match Uuid::parse_str(blob_id_str) {
+                             Ok(blob_id) => {
+                                 match get_excel_sheets(blob_id, ctx).await {
+                                     Ok(s) => format!("Sheets: {:?}", s),
+                                     Err(e) => format!("Error reading sheets: {}", e),
+                                 }
+                             },
+                             Err(_) => "Error: Invalid UUID for blob_id".to_string()
+                         }
+                    } else {
+                        "Error: Missing 'blob_id' in arguments".to_string()
+                    }
                 }
                 "excel_to_csv" => {
-                    let blob_id_str = input_val["blob_id"].as_str().ok_or_else(|| anyhow::anyhow!("Missing blob_id"))?;
-                    let blob_id = Uuid::parse_str(blob_id_str)?;
-                    let sheet_name = input_val["sheet_name"].as_str().map(|s| s.to_string());
-                    excel_to_csv(blob_id, sheet_name, ctx).await?
+                    if let Some(blob_id_str) = input_val["blob_id"].as_str() {
+                         match Uuid::parse_str(blob_id_str) {
+                             Ok(blob_id) => {
+                                 let sheet_name = input_val["sheet_name"].as_str().map(|s| s.to_string());
+                                 match excel_to_csv(blob_id, sheet_name, ctx).await {
+                                     Ok(res) => res,
+                                     Err(e) => format!("Error converting excel: {}", e)
+                                 }
+                             },
+                             Err(_) => "Error: Invalid UUID for blob_id".to_string()
+                         }
+                    } else {
+                        "Error: Missing 'blob_id' in arguments".to_string()
+                    }
                 }
                 "create_excel" => {
                     let file_name = input_val["file_name"].as_str().unwrap_or("output.xlsx");
-                    let rows_val = input_val["rows"].as_array().ok_or_else(|| anyhow::anyhow!("Missing rows"))?;
-                    let mut rows = Vec::new();
-                    for row_val in rows_val {
-                        let row: Vec<String> = row_val.as_array().unwrap().iter().map(|v| v.as_str().unwrap_or("").to_string()).collect();
-                        rows.push(row);
+                    if let Some(rows_val) = input_val["rows"].as_array() {
+                         let mut rows = Vec::new();
+                         for row_val in rows_val {
+                             let row: Vec<String> = row_val.as_array().unwrap_or(&vec![]).iter().map(|v| v.as_str().unwrap_or("").to_string()).collect();
+                             rows.push(row);
+                         }
+                         match create_excel(file_name, rows, session_id, ctx).await {
+                             Ok(new_id) => format!("Success: New Excel file '{}' created. ID: {}.", file_name, new_id),
+                             Err(e) => format!("Error creating excel: {}", e)
+                         }
+                    } else {
+                        "Error: 'rows' must be an array of arrays".to_string()
                     }
-                    let new_blob_id = create_excel(file_name, rows, session_id, ctx).await?;
-                    format!("New Excel file created successfully. File Name: {}, ID: {}. Inform the user they can download this file now.", file_name, new_blob_id)
                 }
                 "create_text_file" => {
                     let file_name = input_val["file_name"].as_str().unwrap_or("output.txt");
-                    let content = input_val["content"].as_str().ok_or_else(|| anyhow::anyhow!("Missing content"))?;
-                    let new_blob_id = create_text_file(file_name, content, session_id, ctx).await?;
-                    format!("New text file created successfully. File Name: {}, ID: {}. Inform the user they can download this file now.", file_name, new_blob_id)
+                     if let Some(content) = input_val["content"].as_str() {
+                         match create_text_file(file_name, content, session_id, ctx).await {
+                             Ok(new_id) => format!("Success: New text file '{}' created. ID: {}.", file_name, new_id),
+                             Err(e) => format!("Error creating file: {}", e)
+                         }
+                     } else {
+                         "Error: Missing 'content' argument".to_string()
+                     }
                 }
                 "download_from_url" => {
-                    let url = input_val["url"].as_str().ok_or_else(|| anyhow::anyhow!("Missing url"))?;
-                    let file_name = input_val["file_name"].as_str().unwrap_or("downloaded_file");
-                    let new_blob_id = download_from_url(url, file_name, session_id, ctx).await?;
-                    format!("File downloaded successfully. File Name: {}, ID: {}. Inform the user they can download this file now.", file_name, new_blob_id)
+                    if let Some(url) = input_val["url"].as_str() {
+                        let file_name = input_val["file_name"].as_str().unwrap_or("downloaded_file");
+                        match download_from_url(url, file_name, session_id, ctx).await {
+                            Ok(new_id) => format!("Success: File downloaded as '{}'. ID: {}.", file_name, new_id),
+                            Err(e) => format!("Error downloading: {}", e)
+                        }
+                    } else {
+                         "Error: Missing 'url' argument".to_string()
+                    }
                 }
-                _ => format!("Unknown action: {}", action),
+                _ => format!("Error: Unknown action '{}'. Available tools are: list_files, get_excel_sheets, excel_to_csv, create_excel, create_text_file.", action),
             };
 
             history.push(GeminiContent {
@@ -223,14 +321,13 @@ Begin!"#, blobs_str);
                     text: Some(format!("Observation: {}", observation)),
                 }],
             });
+
         } else {
-            // If no action and no final answer, the AI is likely just chatting or asking a clarifying question.
-            // valid response for the user.
-            return Ok(ai_text);
+             // Model didn't output an action. If it didn't output Final Answer either (checked above), it's just chatting.
+             // We can just return the text as the final turn.
+             return Ok(ai_text_clean.to_string());
         }
     }
 
-    // This part should theoretically be unreachable now if we return in all paths, 
-    // but just in case the loop finishes exactly at 10 without return:
-    Err(anyhow::anyhow!("Agent loop limit exceeded"))
+    Ok("Terminated: Maximum agent cycles reached without Final Answer.".to_string())
 }
