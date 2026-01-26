@@ -8,3 +8,4 @@ pub mod tasks;
 pub mod views;
 pub mod workers;
 pub mod storage;
+pub mod agent;

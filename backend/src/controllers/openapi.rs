@@ -23,6 +23,9 @@ use crate::{controllers, models, views};
         controllers::blobs::list,
         controllers::blobs::download,
         controllers::blobs::remove,
+        controllers::chat::chat,
+        controllers::chat::list_messages,
+        controllers::chat::clear_messages,
     ),
     components(
         schemas(
@@ -37,6 +40,8 @@ use crate::{controllers, models, views};
             controllers::projects::ProjectResponse,
             controllers::projects::UserSearchResponse,
             controllers::blobs::BlobResponse,
+            controllers::chat::ChatParams,
+            controllers::chat::MessageResponse,
         )
     ),
 )]

@@ -4,3 +4,4 @@ pub use super::sessions::Entity as Sessions;
 pub use super::projects::Entity as Projects;
 pub use super::users_projects::Entity as UsersProjects;
 pub use super::blobs::Entity as Blobs;
+pub use super::messages::Entity as Messages;

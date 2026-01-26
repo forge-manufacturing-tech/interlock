@@ -10,6 +10,7 @@ mod m20260125_210610_projects;
 mod m20260125_220000_add_project_id_to_sessions;
 mod m20260125_221000_users_projects;
 mod m20260126_035153_add_blobs;
+mod m20260126_043000_add_messages;
 pub struct Migrator;
 
 #[async_trait::async_trait]
@@ -24,6 +25,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20260125_220000_add_project_id_to_sessions::Migration),
             Box::new(m20260125_221000_users_projects::Migration),
             Box::new(m20260126_035153_add_blobs::Migration),
+            Box::new(m20260126_043000_add_messages::Migration),
             // inject-above (do not remove this comment)
         ]
     }

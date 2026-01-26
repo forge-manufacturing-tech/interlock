@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ControllersSessionsService, ControllersProjectsService, ControllersBlobsService, SessionResponse, ProjectResponse, BlobResponse } from '../api/generated';
 import { useAuth } from '../contexts/AuthContext';
+import { ChatInterface } from '../components/ChatInterface';
 
 export function SessionsPage() {
     const { projectId } = useParams<{ projectId: string }>();
@@ -250,14 +251,20 @@ export function SessionsPage() {
                 </div>
 
                 {/* Content Area */}
-                <div className="flex-1 overflow-y-auto bg-industrial-steel-950">
+                <div className="flex-1 bg-industrial-steel-950 overflow-hidden flex flex-col">
                     {selectedSession ? (
-                        <div className="p-8">
+                        <div className="p-8 overflow-y-auto flex-1 custom-scrollbar">
                             <div className="max-w-4xl mx-auto">
                                 <h2 className="industrial-headline text-2xl mb-4">{selectedSession.title || 'Untitled'}</h2>
 
                                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-2 space-y-6">
+                                    <div className="lg:col-span-2 flex flex-col gap-6 h-[80vh]">
+                                        <ChatInterface
+                                            sessionId={selectedSession.id}
+                                            blobs={blobs}
+                                            onRefreshBlobs={() => loadBlobs(selectedSession.id)}
+                                        />
+
                                         <div className="industrial-panel rounded-sm p-6">
                                             <h3 className="text-xs font-bold text-industrial-steel-400 uppercase tracking-widest mb-4 font-mono">Session Notes</h3>
                                             <pre className="text-sm text-neutral-300 whitespace-pre-wrap font-mono leading-relaxed">

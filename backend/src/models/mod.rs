@@ -5,3 +5,4 @@ pub mod users_projects;
 pub mod sessions;
 pub mod i64_format;
 pub mod blobs;
+pub mod messages;

@@ -9,9 +9,10 @@ static STORAGE: OnceLock<Arc<dyn ObjectStore>> = OnceLock::new();
 pub fn get_storage() -> Arc<dyn ObjectStore> {
     STORAGE.get_or_init(|| {
         let path = std::env::var("STORAGE_PATH").map(PathBuf::from).unwrap_or_else(|_| {
-            let tmp = tempdir().expect("failed to create temp dir");
-            let path = tmp.into_path(); 
-            println!("Storage defaulting to temporary directory: {:?}", path);
+            let path = std::env::current_dir()
+                .expect("failed to get current dir")
+                .join("storage");
+            println!("Storage defaulting to persistent directory: {:?}", path);
             path
         });
         
