@@ -19,6 +19,10 @@ use crate::{controllers, models, views};
         controllers::projects::remove,
         controllers::projects::share,
         controllers::projects::search_users,
+        controllers::blobs::upload,
+        controllers::blobs::list,
+        controllers::blobs::download,
+        controllers::blobs::remove,
     ),
     components(
         schemas(
@@ -32,6 +36,7 @@ use crate::{controllers, models, views};
             controllers::projects::ShareProjectParams,
             controllers::projects::ProjectResponse,
             controllers::projects::UserSearchResponse,
+            controllers::blobs::BlobResponse,
         )
     ),
 )]
