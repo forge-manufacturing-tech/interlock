@@ -5,9 +5,10 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use sea_orm::{EntityTrait, QueryFilter, QueryOrder, ColumnTrait};
 use crate::models::_entities::messages;
-use crate::agent::tools::{excel_to_csv, create_excel, list_files, get_excel_sheets, create_text_file, download_from_url};
-use regex::Regex;
+use crate::agent::tools::{excel_to_csv, create_excel, list_files, get_excel_sheets, create_text_file, download_from_url, read_file, create_word_doc, create_pdf_doc, generate_image};
 
+
+use regex::Regex;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GeminiPart {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -63,7 +64,7 @@ pub async fn run_agent_cycle(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let system_prompt = format!(r#"You are an industrial data assistant specialized in processing BOMs (Bill of Materials) and technical files.
+    let system_prompt = format!(r#"You are an industrial data assistant specialized in Tech Transfer and processing technical documents (BOMs, SOPs, Reports).
 
 Available files in this session:
 {}
@@ -71,8 +72,10 @@ Available files in this session:
 GUIDELINES:
 1. You are an AGENT running in a ReAct (Reasoning + Acting) loop.
 2. You must achieve the user's goal by using the available tools.
-3. You cannot "see" file contents directly. You MUST use tools like `excel_to_csv` (for Excel) or `read_file` (if text) to inspect them.
-4. When you create a result file (Excel or Text), you MUST output a "Final Answer" telling the user the file name and that it is ready.
+3. You cannot "see" file contents directly. You MUST use tools like `read_file` (for PDF, DOCX, Text) or `excel_to_csv` (for Excel) to inspect them.
+4. When you create a result file, you MUST output a "Final Answer" telling the user the file name and that it is ready.
+5. If the user asks for a diagram (e.g. Mermaid), you can include the Mermaid code in your response or in a generated text/markdown file.
+6. Use `generate_image` liberally if waiting for visualization, diagrams, or if the user asks for a picture. DO NOT just create a text file with a prompt description; you MUST use the `generate_image` tool to actually create the PNG file.
 
 RESPONSE FORMAT:
 You MUST format your output strictly as follows:
@@ -89,24 +92,28 @@ TOOLS:
 1. list_files(): Lists all files available in the current session.
 2. get_excel_sheets(blob_id: string): Returns a list of sheet names in an Excel file.
 3. excel_to_csv(blob_id: string, sheet_name: string?): Converts a specific sheet of an Excel file to CSV text.
-4. create_excel(file_name: string, rows: string[][]): Creates a new Excel file. 'rows' must be a 2D array of strings.
-5. create_text_file(file_name: string, content: string): Saves text content as a file.
-6. download_from_url(url: string, file_name: string): Downloads a file from a URL.
+4. read_file(blob_id: string): Reads the text content of a file (PDF, DOCX, or Text).
+5. create_excel(file_name: string, rows: string[][]): Creates a new Excel file. 'rows' must be a 2D array of strings.
+6. create_word_doc(file_name: string, content: string): Creates a new Word document.
+7. create_pdf_doc(file_name: string, content: string): Creates a new PDF document.
+8. create_text_file(file_name: string, content: string): Creates a text file.
+9. download_from_url(url: string, file_name: string): Downloads a file from a URL.
+10. generate_image(prompt: string, file_name: string): Generates an image based on the prompt.
 
 EXAMPLES:
 
 Example 1 (Checking a file):
-Thought: I need to see what's in the uploaded BOM file to understand the column structure.
-Action: excel_to_csv
-Action Input: {{ "blob_id": "uuid-of-file", "sheet_name": null }}
+Thought: I need to read the SOP document to understand the process.
+Action: read_file
+Action Input: {{ "blob_id": "uuid-of-file" }}
 
 Example 2 (Creating result):
-Thought: I have processed the data. Now I will save the standardized BOM.
-Action: create_excel
-Action Input: {{ "file_name": "Standardized_BOM.xlsx", "rows": [["Part", "Qty"], ["A-1", "10"]] }}
+Thought: I have processed the data. Now I will save the report.
+Action: create_word_doc
+Action Input: {{ "file_name": "Tech_Transfer_Report.docx", "content": "Title: Report\n\nContent..." }}
 
 Example 3 (Done):
-Final Answer: I have created the standardized file 'Standardized_BOM.xlsx' with the requested columns.
+Final Answer: I have created the report 'Tech_Transfer_Report.docx'.
 
 Begin!
 "#, blobs_str);
@@ -274,6 +281,21 @@ Begin!
                         "Error: Missing 'blob_id' in arguments".to_string()
                     }
                 }
+                "read_file" => {
+                    if let Some(blob_id_str) = input_val["blob_id"].as_str() {
+                        match Uuid::parse_str(blob_id_str) {
+                            Ok(blob_id) => {
+                                match read_file(blob_id, ctx).await {
+                                    Ok(content) => content,
+                                    Err(e) => format!("Error reading file: {}", e),
+                                }
+                            },
+                             Err(_) => "Error: Invalid UUID for blob_id".to_string()
+                        }
+                    } else {
+                        "Error: Missing 'blob_id' in arguments".to_string()
+                    }
+                }
                 "create_excel" => {
                     let file_name = input_val["file_name"].as_str().unwrap_or("output.xlsx");
                     if let Some(rows_val) = input_val["rows"].as_array() {
@@ -288,6 +310,28 @@ Begin!
                          }
                     } else {
                         "Error: 'rows' must be an array of arrays".to_string()
+                    }
+                }
+                "create_word_doc" => {
+                    let file_name = input_val["file_name"].as_str().unwrap_or("output.docx");
+                    if let Some(content) = input_val["content"].as_str() {
+                        match create_word_doc(file_name, content, session_id, ctx).await {
+                            Ok(new_id) => format!("Success: New Word doc '{}' created. ID: {}.", file_name, new_id),
+                            Err(e) => format!("Error creating word doc: {}", e)
+                        }
+                    } else {
+                         "Error: Missing 'content' argument".to_string()
+                    }
+                }
+                "create_pdf_doc" => {
+                    let file_name = input_val["file_name"].as_str().unwrap_or("output.pdf");
+                    if let Some(content) = input_val["content"].as_str() {
+                        match create_pdf_doc(file_name, content, session_id, ctx).await {
+                            Ok(new_id) => format!("Success: New PDF '{}' created. ID: {}.", file_name, new_id),
+                            Err(e) => format!("Error creating PDF: {}", e)
+                        }
+                    } else {
+                         "Error: Missing 'content' argument".to_string()
                     }
                 }
                 "create_text_file" => {
@@ -312,8 +356,21 @@ Begin!
                          "Error: Missing 'url' argument".to_string()
                     }
                 }
-                _ => format!("Error: Unknown action '{}'. Available tools are: list_files, get_excel_sheets, excel_to_csv, create_excel, create_text_file.", action),
+                "generate_image" => {
+                    let file_name = input_val["file_name"].as_str().unwrap_or("generated_image.png");
+                    if let Some(prompt) = input_val["prompt"].as_str() {
+                        match generate_image(prompt, file_name, session_id, ctx).await {
+                            Ok(new_id) => format!("Success: Image '{}' generated. ID: {}.", file_name, new_id),
+                            Err(e) => format!("Error generating image: {}", e)
+                        }
+                    } else {
+                         "Error: Missing 'prompt' argument".to_string()
+                    }
+                }
+                _ => format!("Error: Unknown action '{}'. Available tools are: list_files, get_excel_sheets, excel_to_csv, read_file, create_excel, create_word_doc, create_pdf_doc, create_text_file, download_from_url, generate_image.", action),
             };
+
+            println!("Observation: {}", observation);
 
             history.push(GeminiContent {
                 role: "user".to_string(),
