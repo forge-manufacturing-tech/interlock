@@ -312,6 +312,8 @@ pub async fn create_word_doc(
     session_id: Uuid,
     ctx: &AppContext,
 ) -> anyhow::Result<Uuid> {
+    use pulldown_cmark::{Event, Parser, Tag, HeadingLevel, TagEnd};
+
     let buf = {
         let temp_dir = tempfile::tempdir()?;
         let path = temp_dir.path().join("output.docx");
@@ -319,37 +321,88 @@ pub async fn create_word_doc(
         
         let mut doc = Docx::new();
         
-        // Add content paragraphs
-        for para_text in content.split("\n\n") {
-            doc = doc.add_paragraph(Paragraph::new().add_run(Run::new().add_text(para_text)));
+        // Parse Markdown and add to document
+        let parser = Parser::new(content);
+        let mut current_paragraph: Option<Paragraph> = None;
+        let mut is_bold = false;
+        let mut is_italic = false;
+
+        for event in parser {
+            match event {
+                Event::Start(tag) => {
+                    match tag {
+                        Tag::Paragraph => {
+                            current_paragraph = Some(Paragraph::new());
+                        }
+                        Tag::Heading { level, .. } => {
+                            let style = match level {
+                                HeadingLevel::H1 => "Heading1",
+                                HeadingLevel::H2 => "Heading2",
+                                HeadingLevel::H3 => "Heading3",
+                                _ => "Heading4",
+                            };
+                            current_paragraph = Some(Paragraph::new().style(style));
+                        }
+                        Tag::Strong => is_bold = true,
+                        Tag::Emphasis => is_italic = true,
+                        Tag::List(..) => {}
+                        Tag::Item => {
+                            current_paragraph = Some(Paragraph::new().add_run(Run::new().add_text("• ")));
+                        }
+                        _ => {}
+                    }
+                }
+                Event::End(tag) => {
+                    match tag {
+                        TagEnd::Paragraph | TagEnd::Heading(..) | TagEnd::Item => {
+                            if let Some(p) = current_paragraph.take() {
+                                doc = doc.add_paragraph(p);
+                            }
+                        }
+                        TagEnd::Strong => is_bold = false,
+                        TagEnd::Emphasis => is_italic = false,
+                        TagEnd::List(..) => {}
+                        _ => {}
+                    }
+                }
+                Event::Text(text) => {
+                    let mut run = Run::new();
+                    if is_bold { run = run.bold(); }
+                    if is_italic { run = run.italic(); }
+                    
+                    if let Some(mut p) = current_paragraph.take() {
+                        p = p.add_run(run.add_text(text.as_ref()));
+                        current_paragraph = Some(p);
+                    } else {
+                        doc = doc.add_paragraph(Paragraph::new().add_run(run.add_text(text.as_ref())));
+                    }
+                }
+                Event::SoftBreak | Event::HardBreak => {
+                    if let Some(mut p) = current_paragraph.take() {
+                        p = p.add_run(Run::new().add_break(docx_rs::BreakType::TextWrapping));
+                        current_paragraph = Some(p);
+                    }
+                }
+                _ => {}
+            }
         }
 
         // Add Image if provided
         if let Some(img_id) = image_id {
-             // Retrieve image blob from DB/Storage
-             // We can't easily call other tools directly, so we use internal logic
-             // Assuming blobs are in DB. We need to fetch the blob content.
-             // Since we are in the `tools` module, we can use the entity/model if needed, 
-             // but `read_file` logic is not exposed as a public helper returning bytes easily.
-             // We will query the DB directly here.
-             use crate::models::_entities::blobs;
              let blob = blobs::Entity::find_by_id(img_id)
                 .one(&ctx.db)
                 .await
                 .map_err(|e| anyhow::anyhow!("Failed to find image blob: {}", e))?;
 
              if let Some(blob_record) = blob {
-                 // Storage path lookup
-                 let storage_path = std::path::Path::new("storage").join(&blob_record.storage_key);
-                 if storage_path.exists() {
-                     let img_bytes = std::fs::read(&storage_path)
-                        .map_err(|e| anyhow::anyhow!("Failed to read image file: {}", e))?;
-                     
-                     // Create image
-                     let img = docx_rs::Pic::new(&img_bytes);
-                     // Add to doc
-                     doc = doc.add_paragraph(Paragraph::new().add_run(Run::new().add_image(img)));
-                 }
+                 let storage = get_storage();
+                 let img_data = storage.get(&ObjectPath::from(blob_record.storage_key))
+                    .await?
+                    .bytes()
+                    .await?;
+                 
+                 let img = docx_rs::Pic::new(&img_data.to_vec());
+                 doc = doc.add_paragraph(Paragraph::new().add_run(Run::new().add_image(img)));
              }
         }
         

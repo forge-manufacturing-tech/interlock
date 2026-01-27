@@ -64,7 +64,7 @@ pub async fn run_agent_cycle(
         .collect::<Vec<_>>()
         .join("\n");
 
-    let system_prompt = format!(r#"You are an industrial data assistant specialized in Tech Transfer and processing technical documents (BOMs, SOPs, Reports).
+    let system_prompt = format!(r##"You are an industrial data assistant specialized in Tech Transfer and processing technical documents (BOMs, SOPs, Reports).
 
 Available files in this session:
 {}
@@ -80,7 +80,7 @@ GUIDELINES:
    - ALWAYS generate at least 1-2 visual diagrams or illustrations using `generate_image`, related to the subject matter.
    - ALWAYS create a final Word report (`Summary_Report.docx`) aggregating the key findings, data, and context.
 7. Use `generate_image` liberally.
-8. USE `create_word_doc` for ALL formal documents (Reports, Proposals, Instructions). DO NOT use `create_text_file` for these; use Word (.docx).
+8. USE `create_word_doc` for ALL formal documents (Reports, Proposals, Instructions). DO NOT use `create_text_file` for these; use Word (.docx). Use full Markdown formatting (headers, bold, lists, tables) for the content to ensure professional formatting.
 9. Return the result files when ready.
 
 
@@ -115,15 +115,15 @@ Action: read_file
 Action Input: {{ "blob_id": "uuid-of-file" }}
 
 Example 2 (Creating result):
-Thought: I have processed the data. Now I will save the report.
+Thought: I have processed the data. Now I will save the report with professional Markdown formatting.
 Action: create_word_doc
-Action Input: {{ "file_name": "Tech_Transfer_Report.docx", "content": "Title: Report\n\nContent..." }}
+Action Input: {{ "file_name": "Tech_Transfer_Report.docx", "content": "# Tech Transfer Report\n\n## Summary\nThis report covers the **Tech Transfer** process.\n\n### Key Findings\n- Part A is optimized.\n- Part B requires review." }}
 
 Example 3 (Done):
 Final Answer: I have created the report 'Tech_Transfer_Report.docx'.
 
 Begin!
-"#, blobs_str);
+"##, blobs_str);
 
     let messages = messages::Entity::find()
         .filter(messages::Column::SessionId.eq(session_id))

@@ -54,6 +54,7 @@ docx-rs = "0.4"
 genpdf = "0.2"
 image = "0.24"
 base64 = "0.22"
+pulldown-cmark = "0.13.0"
 
 [[bin]]
 name = "backend-cli"
