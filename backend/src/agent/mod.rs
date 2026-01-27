@@ -75,7 +75,14 @@ GUIDELINES:
 3. You cannot "see" file contents directly. You MUST use tools like `read_file` (for PDF, DOCX, Text) or `excel_to_csv` (for Excel) to inspect them.
 4. When you create a result file, you MUST output a "Final Answer" telling the user the file name and that it is ready.
 5. If the user asks for a diagram (e.g. Mermaid), you can include the Mermaid code in your response or in a generated text/markdown file.
-6. Use `generate_image` liberally if waiting for visualization, diagrams, or if the user asks for a picture. DO NOT just create a text file with a prompt description; you MUST use the `generate_image` tool to actually create the PNG file.
+6. MANDATORY OUTPUTS (unless explicitly told otherwise):
+   - ALWAYS generate a CSV summary of any extracted data lists (e.g., BOMs, Part Lists).
+   - ALWAYS generate at least 1-2 visual diagrams or illustrations using `generate_image`, related to the subject matter.
+   - ALWAYS create a final Word report (`Summary_Report.docx`) aggregating the key findings, data, and context.
+7. Use `generate_image` liberally.
+8. USE `create_word_doc` for ALL formal documents (Reports, Proposals, Instructions). DO NOT use `create_text_file` for these; use Word (.docx).
+9. Return the result files when ready.
+
 
 RESPONSE FORMAT:
 You MUST format your output strictly as follows:
@@ -94,7 +101,7 @@ TOOLS:
 3. excel_to_csv(blob_id: string, sheet_name: string?): Converts a specific sheet of an Excel file to CSV text.
 4. read_file(blob_id: string): Reads the text content of a file (PDF, DOCX, or Text).
 5. create_excel(file_name: string, rows: string[][]): Creates a new Excel file. 'rows' must be a 2D array of strings.
-6. create_word_doc(file_name: string, content: string): Creates a new Word document.
+6. create_word_doc(file_name: string, content: string, image_id: string?): Creates a new Word document. optionally embedding an image by ID.
 7. create_pdf_doc(file_name: string, content: string): Creates a new PDF document.
 8. create_text_file(file_name: string, content: string): Creates a text file.
 9. download_from_url(url: string, file_name: string): Downloads a file from a URL.
@@ -314,8 +321,10 @@ Begin!
                 }
                 "create_word_doc" => {
                     let file_name = input_val["file_name"].as_str().unwrap_or("output.docx");
+                    let image_id = input_val["image_id"].as_str().and_then(|s| Uuid::parse_str(s).ok());
+                    
                     if let Some(content) = input_val["content"].as_str() {
-                        match create_word_doc(file_name, content, session_id, ctx).await {
+                        match create_word_doc(file_name, content, image_id, session_id, ctx).await {
                             Ok(new_id) => format!("Success: New Word doc '{}' created. ID: {}.", file_name, new_id),
                             Err(e) => format!("Error creating word doc: {}", e)
                         }

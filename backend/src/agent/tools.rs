@@ -308,6 +308,7 @@ pub async fn read_file(blob_id: Uuid, ctx: &AppContext) -> anyhow::Result<String
 pub async fn create_word_doc(
     file_name: &str,
     content: &str,
+    image_id: Option<Uuid>,
     session_id: Uuid,
     ctx: &AppContext,
 ) -> anyhow::Result<Uuid> {
@@ -318,9 +319,38 @@ pub async fn create_word_doc(
         
         let mut doc = Docx::new();
         
-        // Simple splitting by double newlines for paragraphs
+        // Add content paragraphs
         for para_text in content.split("\n\n") {
             doc = doc.add_paragraph(Paragraph::new().add_run(Run::new().add_text(para_text)));
+        }
+
+        // Add Image if provided
+        if let Some(img_id) = image_id {
+             // Retrieve image blob from DB/Storage
+             // We can't easily call other tools directly, so we use internal logic
+             // Assuming blobs are in DB. We need to fetch the blob content.
+             // Since we are in the `tools` module, we can use the entity/model if needed, 
+             // but `read_file` logic is not exposed as a public helper returning bytes easily.
+             // We will query the DB directly here.
+             use crate::models::_entities::blobs;
+             let blob = blobs::Entity::find_by_id(img_id)
+                .one(&ctx.db)
+                .await
+                .map_err(|e| anyhow::anyhow!("Failed to find image blob: {}", e))?;
+
+             if let Some(blob_record) = blob {
+                 // Storage path lookup
+                 let storage_path = std::path::Path::new("storage").join(&blob_record.storage_key);
+                 if storage_path.exists() {
+                     let img_bytes = std::fs::read(&storage_path)
+                        .map_err(|e| anyhow::anyhow!("Failed to read image file: {}", e))?;
+                     
+                     // Create image
+                     let img = docx_rs::Pic::new(&img_bytes);
+                     // Add to doc
+                     doc = doc.add_paragraph(Paragraph::new().add_run(Run::new().add_image(img)));
+                 }
+             }
         }
         
         doc.build().pack(file)?;
@@ -340,27 +370,71 @@ pub async fn create_pdf_doc(
     session_id: Uuid,
     ctx: &AppContext,
 ) -> anyhow::Result<Uuid> {
-    // For PDF generation we use genpdf
-    // We need a font. We will try to load a system font.
-    // Wrap in block to ensure !Send types are dropped before await
+    // Ensure font exists locally to avoid system font issues
+    let font_dir = std::path::Path::new("storage/fonts");
+    if !font_dir.exists() {
+        std::fs::create_dir_all(font_dir).map_err(|e| anyhow::anyhow!("Failed to create font dir: {}", e))?;
+    }
+    
+    let font_path = font_dir.join("Roboto-Regular.ttf");
+    
+    if !font_path.exists() {
+        // Download font (Roboto Regular)
+        println!("Downloading font for PDF generation...");
+        let url = "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf";
+        // We can't use the simple reqwest::get if we need to reuse the client or similar, 
+        // but creating a new client here is fine for this occasional task.
+        let resp = reqwest::get(url).await
+            .map_err(|e| anyhow::anyhow!("Failed to request font: {}", e))?;
+            
+        if !resp.status().is_success() {
+             return Err(anyhow::anyhow!("Failed to download font from {}: {}", url, resp.status()));
+        }
+        
+        let bytes = resp.bytes().await
+            .map_err(|e| anyhow::anyhow!("Failed to get font bytes: {}", e))?;
+            
+        std::fs::write(&font_path, bytes)
+            .map_err(|e| anyhow::anyhow!("Failed to save font to {:?}: {}", font_path, e))?;
+        println!("Font downloaded successfully.");
+    }
+
+    // Wrap in block to ensure !Send types from genpdf are dropped before await (save_blob)
     let buf = {
-        let font_family = genpdf::fonts::from_files("/usr/share/fonts/truetype/ubuntu", "UbuntuMono-R.ttf", None)
-            .map_err(|_| anyhow::anyhow!("Failed to load font for PDF generation"))?;
+        let font_bytes = std::fs::read(&font_path)
+            .map_err(|e| anyhow::anyhow!("Failed to read font file from {:?}: {}", font_path, e))?;
+            
+        let font_data = genpdf::fonts::FontData::new(font_bytes, None)
+            .map_err(|e| anyhow::anyhow!("Failed to parse font data: {}", e))?;
+            
+        // Use the same font for all styles since we're just downloading Regular
+        // Ideally we'd download Bold/Italic too, but this is sufficient for basic reports
+        let font_family = genpdf::fonts::FontFamily {
+            regular: font_data.clone(),
+            bold: font_data.clone(), 
+            italic: font_data.clone(),
+            bold_italic: font_data,
+        };
         
         let mut doc = genpdf::Document::new(font_family);
         doc.set_title("Generated Document");
+        doc.set_minimal_conformance(); 
+        doc.set_line_spacing(1.2);
         
         let mut decorator = genpdf::SimplePageDecorator::new();
-        decorator.set_margins(10);
+        decorator.set_margins(12); // slightly larger margin
         doc.set_page_decorator(decorator);
         
-        // Add content
-        for line in content.lines() {
-            doc.push(genpdf::elements::Paragraph::new(line));
+        // Add content, splitting by paragraphs
+        for paragraph_text in content.split("\n\n") {
+             doc.push(genpdf::elements::Paragraph::new(paragraph_text));
+             // Add some spacing after paragraphs? genpdf doesn't have explicit margin-bottom for Paragraph element easily 
+             // without wrapping, generally \n\n split is enough if we handle it right.
+             doc.push(genpdf::elements::Break::new(1));
         }
         
         let mut buf = Vec::new();
-        doc.render(&mut buf)?;
+        doc.render(&mut buf).map_err(|e| anyhow::anyhow!("Failed to render PDF: {}", e))?;
         buf
     };
     
