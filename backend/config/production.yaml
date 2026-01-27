@@ -17,7 +17,7 @@ logger:
 # Web server configuration
 server:
   # Port on which the server will listen. the server binding is 0.0.0.0:{PORT}
-  port: 5150
+  port: {{ get_env(name="PORT", default="5150") }}
   # Binding for the server (which interface to bind to)
   binding: 0.0.0.0
   # The UI hostname or IP address that mailers will point to.
@@ -86,9 +86,9 @@ database:
   # When enabled, the sql query will be logged.
   enable_logging: false
   # Set the timeout duration when acquiring a connection.
-  connect_timeout: {{ get_env(name="DB_CONNECT_TIMEOUT", default="5000") }}
+  connect_timeout: {{ get_env(name="DB_CONNECT_TIMEOUT", default="15000") }}
   # Set the idle duration before closing a connection.
-  idle_timeout: {{ get_env(name="DB_IDLE_TIMEOUT", default="5000") }}
+  idle_timeout: {{ get_env(name="DB_IDLE_TIMEOUT", default="15000") }}
   # Minimum number of connections for a pool.
   min_connections: {{ get_env(name="DB_MIN_CONNECTIONS", default="1") }}
   # Maximum number of connections for a pool.

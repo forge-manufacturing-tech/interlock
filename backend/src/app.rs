@@ -47,6 +47,7 @@ impl Hooks for App {
 
     fn routes(_ctx: &AppContext) -> AppRoutes {
         AppRoutes::empty() // controller routes below
+            .add_route(controllers::admin::routes())
             .add_route(controllers::auth::routes())
             .add_route(controllers::sessions::routes())
             .add_route(controllers::projects::routes())

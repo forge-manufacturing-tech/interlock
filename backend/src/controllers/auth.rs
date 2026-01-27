@@ -8,8 +8,10 @@ use crate::{
 };
 use loco_rs::prelude::*;
 use regex::Regex;
+use sea_orm::PaginatorTrait;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
+use utoipa::ToSchema;
 
 pub static EMAIL_DOMAIN_RE: OnceLock<Regex> = OnceLock::new();
 
@@ -287,9 +289,27 @@ async fn resend_verification_email(
     format::json(())
 }
 
+#[derive(Debug, Serialize, ToSchema)]
+pub struct InitResponse {
+    pub initialized: bool,
+}
+
+#[utoipa::path(
+    get,
+    path = "/api/auth/initialized",
+    responses(
+        (status = 200, description = "Check if system is initialized", body = InitResponse)
+    )
+)]
+pub async fn initialized(State(ctx): State<AppContext>) -> Result<Response> {
+    let count = users::Entity::find().count(&ctx.db).await?;
+    format::json(InitResponse { initialized: count > 0 })
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api/auth")
+        .add("/initialized", get(initialized))
         .add("/register", post(register))
         .add("/verify/{token}", get(verify))
         .add("/login", post(login))

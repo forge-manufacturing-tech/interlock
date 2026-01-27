@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use chrono::{offset::Local, Duration};
 use loco_rs::{auth::jwt, hash, prelude::*};
+use sea_orm::PaginatorTrait;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use serde_json::Map;
@@ -43,7 +44,7 @@ impl Validatable for ActiveModel {
 
 #[async_trait::async_trait]
 impl ActiveModelBehavior for super::_entities::users::ActiveModel {
-    async fn before_save<C>(self, _db: &C, insert: bool) -> Result<Self, DbErr>
+    async fn before_save<C>(self, db: &C, insert: bool) -> Result<Self, DbErr>
     where
         C: ConnectionTrait,
     {
@@ -52,6 +53,14 @@ impl ActiveModelBehavior for super::_entities::users::ActiveModel {
             let mut this = self;
             this.pid = ActiveValue::Set(Uuid::new_v4());
             this.api_key = ActiveValue::Set(format!("lo-{}", Uuid::new_v4()));
+
+            let count = users::Entity::find().count(db).await?;
+            if count == 0 {
+                this.role = ActiveValue::Set("admin".to_string());
+            } else {
+                this.role = ActiveValue::Set("user".to_string());
+            }
+
             Ok(this)
         } else {
             Ok(self)
