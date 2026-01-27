@@ -41,6 +41,9 @@ pub struct SessionResponse {
     pub title: Option<String>,
     pub content: Option<String>,
     pub project_id: Option<Uuid>,
+    pub status: String,
+    #[schema(value_type = Vec<String>)]
+    pub pending_tasks: Vec<String>,
     #[schema(value_type = String, format = Date)]
     pub created_at: DateTimeWithTimeZone,
     #[schema(value_type = String, format = Date)]
@@ -54,6 +57,8 @@ impl From<Model> for SessionResponse {
             title: m.title,
             content: m.content,
             project_id: m.project_id,
+            status: m.status,
+            pending_tasks: serde_json::from_value(m.pending_tasks).unwrap_or_default(),
             created_at: m.created_at,
             updated_at: m.updated_at,
         }

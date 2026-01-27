@@ -156,9 +156,114 @@ pub async fn clear_messages(
     format::empty()
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct QueueTasksParams {
+    pub tasks: Vec<String>,
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/sessions/{session_id}/queue",
+    params(
+        ("session_id" = Uuid, Path, description = "Session ID")
+    ),
+    request_body = QueueTasksParams,
+    responses(
+        (status = 200, description = "Tasks queued")
+    )
+)]
+pub async fn queue_tasks(
+    Path(session_id): Path<Uuid>,
+    auth: auth::JWT,
+    State(ctx): State<AppContext>,
+    Json(params): Json<QueueTasksParams>,
+) -> Result<Response> {
+    let session = check_session_access(&ctx, &auth, session_id).await?;
+
+    let mut active: sessions::ActiveModel = session.into();
+    active.status = ActiveValue::Set("processing".to_string());
+    active.pending_tasks = ActiveValue::Set(serde_json::to_value(&params.tasks).map_err(|e| Error::BadRequest(e.to_string()))?);
+    active.update(&ctx.db).await?;
+
+    let ctx_clone = ctx.clone();
+    tokio::spawn(async move {
+        if let Err(e) = crate::agent::process_session_queue(ctx_clone, session_id).await {
+            tracing::error!("Background processing failed for session {}: {}", session_id, e);
+        }
+    });
+
+    format::empty()
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/sessions/{session_id}/cancel",
+    params(
+        ("session_id" = Uuid, Path, description = "Session ID")
+    ),
+    responses(
+        (status = 200, description = "Session cancelled")
+    )
+)]
+pub async fn cancel_session(
+    Path(session_id): Path<Uuid>,
+    auth: auth::JWT,
+    State(ctx): State<AppContext>,
+) -> Result<Response> {
+    let session = check_session_access(&ctx, &auth, session_id).await?;
+
+    let mut active: sessions::ActiveModel = session.into();
+    active.status = ActiveValue::Set("cancelled".to_string());
+    // Optionally clear pending tasks or leave them for debug
+    active.pending_tasks = ActiveValue::Set(serde_json::json!([]));
+    active.update(&ctx.db).await?;
+
+    format::empty()
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/sessions/{session_id}/retry",
+    params(
+        ("session_id" = Uuid, Path, description = "Session ID")
+    ),
+    responses(
+        (status = 200, description = "Retry started"),
+        (status = 400, description = "Nothing to retry")
+    )
+)]
+pub async fn retry_session(
+    Path(session_id): Path<Uuid>,
+    auth: auth::JWT,
+    State(ctx): State<AppContext>,
+) -> Result<Response> {
+    let session = check_session_access(&ctx, &auth, session_id).await?;
+    
+    let tasks: Vec<String> = serde_json::from_value(session.pending_tasks.clone()).map_err(|e| Error::BadRequest(e.to_string()))?;
+    if tasks.is_empty() {
+        return bad_request("No pending tasks to retry");
+    }
+
+    let mut active: sessions::ActiveModel = session.into();
+    active.status = ActiveValue::Set("processing".to_string());
+    active.update(&ctx.db).await?;
+
+    let ctx_clone = ctx.clone();
+    tokio::spawn(async move {
+        if let Err(e) = crate::agent::process_session_queue(ctx_clone, session_id).await {
+            tracing::error!("Background processing (retry) failed for session {}: {}", session_id, e);
+        }
+    });
+
+    format::empty()
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .add("/api/sessions/{session_id}/chat", post(chat))
         .add("/api/sessions/{session_id}/messages", get(list_messages))
         .add("/api/sessions/{session_id}/messages", delete(clear_messages))
+        .add("/api/sessions/{session_id}/queue", post(queue_tasks))
+        .add("/api/sessions/{session_id}/cancel", post(cancel_session))
+        .add("/api/sessions/{session_id}/retry", post(retry_session))
 }

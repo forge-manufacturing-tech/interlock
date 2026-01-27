@@ -26,4 +26,9 @@ If you are a new Antigravity instance working on this repository, you **MUST** f
      - **ALWAYS use String-based IDs (UUIDs)** for database primary keys, never integers
      - Use `Uuid` type in Rust, `VARCHAR` or `UUID` in PostgreSQL
      - This avoids JavaScript number precision issues and is the standard pattern in this codebase
-     - Example: Sessions and Projects both use UUID primary keys
+     - **Async Generation Process**:
+     - Document generation is handled as an asynchronous background job.
+     - Sessions have a `status` (`idle`, `processing`, `completed`, `cancelled`) and `pending_tasks` (JSON array of prompts).
+     - The frontend polls `/api/sessions/{id}` to track progress and update the UI.
+     - Cancellation is supported via `/api/sessions/{id}/cancel`.
+

@@ -14,6 +14,9 @@ pub struct Model {
     #[sea_orm(column_type = "Text", nullable)]
     pub content: Option<String>,
     pub project_id: Option<Uuid>,
+    pub status: String,
+    #[sea_orm(column_type = "JsonBinary")]
+    pub pending_tasks: Json,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

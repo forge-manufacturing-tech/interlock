@@ -397,3 +397,121 @@ Begin!
 
     Ok("Terminated: Maximum agent cycles reached without Final Answer.".to_string())
 }
+
+pub async fn process_session_queue(ctx: AppContext, session_id: Uuid) -> anyhow::Result<()> {
+    use sea_orm::{ActiveModelTrait, Set};
+    use crate::models::_entities::{sessions, messages};
+
+    println!("Processing queue for session {}", session_id);
+    
+    // Fetch session
+    let session = sessions::Entity::find_by_id(session_id)
+        .one(&ctx.db)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("Session not found"))?;
+        
+    let tasks_json = session.pending_tasks.clone();
+    let mut tasks: Vec<String> = serde_json::from_value(tasks_json)?;
+    
+    if tasks.is_empty() {
+        // Mark complete
+        let mut active: sessions::ActiveModel = session.into();
+        active.status = Set("completed".to_string());
+        active.update(&ctx.db).await?;
+        return Ok(());
+    }
+    
+    let api_key = std::env::var("GEMINI_API_KEY").unwrap_or_default();
+    
+    // Loop
+    while let Some(task) = tasks.first().cloned() {
+        // Re-fetch session to check for cancellation
+        let current_session = sessions::Entity::find_by_id(session_id)
+            .one(&ctx.db)
+            .await?
+            .ok_or_else(|| anyhow::anyhow!("Session not found"))?;
+
+        if current_session.status != "processing" {
+            println!("Session {} execution halted (status: {})", session_id, current_session.status);
+            return Ok(());
+        }
+
+        println!("Processing task: {}", task);
+        
+        let blobs = crate::models::_entities::blobs::Entity::find()
+            .filter(crate::models::_entities::blobs::Column::SessionId.eq(session_id))
+            .all(&ctx.db)
+            .await?;
+        let blobs_context: Vec<(String, String)> = blobs.into_iter()
+            .map(|b| (b.id.to_string(), b.file_name))
+            .collect();
+
+        // Save USER message for this task
+        let user_msg = messages::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            session_id: Set(session_id),
+            role: Set("user".to_string()),
+            content: Set(task.clone()),
+            ..Default::default()
+        };
+        user_msg.insert(&ctx.db).await?;
+
+        // Run Agent
+        let result = match run_agent_cycle(&ctx, session_id, &task, &api_key, blobs_context).await {
+            Ok(res) => res,
+            Err(e) => {
+                let error_msg = format!("Error executing task: {}", e);
+                // Save Error message
+                let asst_msg = messages::ActiveModel {
+                    id: Set(Uuid::new_v4()),
+                    session_id: Set(session_id),
+                    role: Set("assistant".to_string()),
+                    content: Set(error_msg),
+                    ..Default::default()
+                };
+                asst_msg.insert(&ctx.db).await?;
+
+                // Set status to error and stop
+                let mut active_update = sessions::ActiveModel {
+                    id: Set(session_id),
+                    status: Set("error".to_string()),
+                    ..Default::default()
+                };
+                active_update.update(&ctx.db).await?;
+                return Ok(());
+            }
+        };
+        
+        // Save ASSISTANT message
+        let asst_msg = messages::ActiveModel {
+            id: Set(Uuid::new_v4()),
+            session_id: Set(session_id),
+            role: Set("assistant".to_string()),
+            content: Set(result),
+            ..Default::default()
+        };
+        asst_msg.insert(&ctx.db).await?;
+        
+        // Remove task from queue only if SUCCESS
+        tasks.remove(0); 
+        
+        // Update session
+        // Create ActiveModel with just the ID and fields to update
+        let mut active_update = sessions::ActiveModel {
+            id: Set(session_id),
+            pending_tasks: Set(serde_json::to_value(&tasks)?),
+            ..Default::default()
+        };
+        
+        if tasks.is_empty() {
+            active_update.status = Set("completed".to_string());
+        } else {
+            active_update.status = Set("processing".to_string());
+        }
+        
+        // Use update(db) which filters by primary key (id)
+        active_update.update(&ctx.db).await?;
+    }
+    
+    Ok(())
+}
