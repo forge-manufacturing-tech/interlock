@@ -5,7 +5,7 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use sea_orm::{EntityTrait, QueryFilter, QueryOrder, ColumnTrait};
 use crate::models::_entities::messages;
-use crate::agent::tools::{excel_to_csv, create_excel, list_files, get_excel_sheets, create_text_file, download_from_url, read_file, create_word_doc, create_pdf_doc, generate_image};
+use crate::agent::tools::{excel_to_csv, create_excel, list_files, get_excel_sheets, create_text_file, download_from_url, read_file, create_word_doc, create_pdf_doc, generate_image, search_internet};
 
 
 use regex::Regex;
@@ -106,6 +106,7 @@ TOOLS:
 8. create_text_file(file_name: string, content: string): Creates a text file.
 9. download_from_url(url: string, file_name: string): Downloads a file from a URL.
 10. generate_image(prompt: string, file_name: string): Generates an image based on the prompt.
+11. search_internet(query: string): Searches the internet for information about parts, components, or items.
 
 EXAMPLES:
 
@@ -376,7 +377,17 @@ Begin!
                          "Error: Missing 'prompt' argument".to_string()
                     }
                 }
-                _ => format!("Error: Unknown action '{}'. Available tools are: list_files, get_excel_sheets, excel_to_csv, read_file, create_excel, create_word_doc, create_pdf_doc, create_text_file, download_from_url, generate_image.", action),
+                "search_internet" => {
+                    if let Some(query) = input_val["query"].as_str() {
+                        match search_internet(query).await {
+                            Ok(res) => res,
+                            Err(e) => format!("Error searching: {}", e),
+                        }
+                    } else {
+                        "Error: Missing 'query' argument".to_string()
+                    }
+                }
+                _ => format!("Error: Unknown action '{}'. Available tools are: list_files, get_excel_sheets, excel_to_csv, read_file, create_excel, create_word_doc, create_pdf_doc, create_text_file, download_from_url, generate_image, search_internet.", action),
             };
 
             println!("Observation: {}", observation);
@@ -472,7 +483,7 @@ pub async fn process_session_queue(ctx: AppContext, session_id: Uuid) -> anyhow:
                 asst_msg.insert(&ctx.db).await?;
 
                 // Set status to error and stop
-                let mut active_update = sessions::ActiveModel {
+                let active_update = sessions::ActiveModel {
                     id: Set(session_id),
                     status: Set("error".to_string()),
                     ..Default::default()

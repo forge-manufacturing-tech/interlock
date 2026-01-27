@@ -38,7 +38,7 @@ pub async fn get_excel_sheets(blob_id: Uuid, ctx: &AppContext) -> anyhow::Result
         .await?;
 
     let cursor = Cursor::new(data);
-    let mut workbook: Xlsx<_> = open_workbook_from_rs(cursor)?;
+    let workbook: Xlsx<_> = open_workbook_from_rs(cursor)?;
     
     Ok(workbook.sheet_names().to_vec())
 }
@@ -492,4 +492,43 @@ pub async fn create_pdf_doc(
     };
     
     save_blob(file_name, "application/pdf", buf, session_id, ctx).await
+}
+
+pub async fn search_internet(query: &str) -> anyhow::Result<String> {
+    let api_key = std::env::var("GOOGLE_SEARCH_API_KEY").map_err(|_| anyhow::anyhow!("GOOGLE_SEARCH_API_KEY not set"))?;
+    let cx = std::env::var("GOOGLE_SEARCH_CX").map_err(|_| anyhow::anyhow!("GOOGLE_SEARCH_CX not set"))?;
+
+    let client = reqwest::Client::new();
+    let mut url = reqwest::Url::parse("https://www.googleapis.com/customsearch/v1")
+        .map_err(|e| anyhow::anyhow!("Failed to parse URL: {}", e))?;
+
+    url.query_pairs_mut()
+        .append_pair("key", &api_key)
+        .append_pair("cx", &cx)
+        .append_pair("q", query);
+
+    let resp = client.get(url)
+        .send()
+        .await?;
+
+    let status = resp.status();
+    if !status.is_success() {
+        let text = resp.text().await?;
+        return Err(anyhow::anyhow!("Search API Error: Status: {}, Body: {}", status, text));
+    }
+
+    let json: serde_json::Value = resp.json().await?;
+
+    let items = json["items"].as_array().ok_or_else(|| anyhow::anyhow!("No items found in search response"))?;
+
+    let mut result = format!("Search Results for '{}':\n", query);
+    for (i, item) in items.iter().take(5).enumerate() {
+        let title = item["title"].as_str().unwrap_or("No Title");
+        let link = item["link"].as_str().unwrap_or("No Link");
+        let snippet = item["snippet"].as_str().unwrap_or("No Snippet").replace('\n', " ");
+
+        result.push_str(&format!("{}. {} ({})\n   {}\n", i + 1, title, link, snippet));
+    }
+
+    Ok(result)
 }
