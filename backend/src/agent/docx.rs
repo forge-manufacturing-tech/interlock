@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use docx_rs::{
-    Docx, Paragraph, Run, Table, TableCell, TableRow, Pic, AlignmentType, BreakType
+    Docx, Paragraph, Run, Table, TableCell, TableRow, Pic, AlignmentType, BreakType,
+    AbstractNumbering, Level, Numbering, NumberingId, IndentLevel, Start, NumberFormat, LevelText, LevelJc
 };
 use loco_rs::prelude::*;
 use pulldown_cmark::{Event, Parser, Tag, TagEnd};
@@ -36,6 +37,11 @@ pub enum DocElement {
         height: Option<u32>,
         #[serde(default)]
         caption: Option<String>,
+    },
+    List {
+        items: Vec<String>,
+        #[serde(default)]
+        numbered: bool,
     },
 }
 
@@ -114,7 +120,29 @@ pub async fn generate_docx_with_fetcher(
     let path = temp_dir.path().join("output.docx");
     let file = std::fs::File::create(&path)?;
 
-    let mut doc = Docx::new();
+    let mut doc = Docx::new()
+        .add_abstract_numbering(
+            AbstractNumbering::new(1)
+                .add_level(Level::new(
+                    0,
+                    Start::new(1),
+                    NumberFormat::new("bullet"),
+                    LevelText::new("●"),
+                    LevelJc::new("left")
+                ).indent(Some(635), Some(docx_rs::SpecialIndentType::Hanging(360)), None, None))
+        )
+        .add_numbering(Numbering::new(1, 1))
+        .add_abstract_numbering(
+            AbstractNumbering::new(2)
+                 .add_level(Level::new(
+                    0,
+                    Start::new(1),
+                    NumberFormat::new("decimal"),
+                    LevelText::new("%1."),
+                    LevelJc::new("left")
+                ).indent(Some(635), Some(docx_rs::SpecialIndentType::Hanging(360)), None, None))
+        )
+        .add_numbering(Numbering::new(2, 2));
 
     for element in elements {
         match element {
@@ -157,6 +185,14 @@ pub async fn generate_docx_with_fetcher(
                 }
 
                 doc = doc.add_table(Table::new(table_rows));
+            }
+            DocElement::List { items, numbered } => {
+                let num_id = if numbered { 2 } else { 1 };
+                for item in items {
+                    let p = process_text_content(&item)
+                        .numbering(NumberingId::new(num_id), IndentLevel::new(0));
+                    doc = doc.add_paragraph(p);
+                }
             }
             DocElement::Image { image_id, width, height, caption } => {
                 match fetcher.fetch_image(image_id).await {
