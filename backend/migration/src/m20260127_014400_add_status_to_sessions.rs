@@ -16,6 +16,13 @@ impl MigrationTrait for Migration {
                         .not_null()
                         .default("idle"),
                 )
+                .to_owned(),
+        )
+        .await?;
+
+        m.alter_table(
+            Table::alter()
+                .table(Alias::new("sessions"))
                 .add_column(
                     ColumnDef::new(Alias::new("pending_tasks"))
                         .json_binary()
@@ -32,6 +39,13 @@ impl MigrationTrait for Migration {
             Table::alter()
                 .table(Alias::new("sessions"))
                 .drop_column(Alias::new("status"))
+                .to_owned(),
+        )
+        .await?;
+
+        m.alter_table(
+            Table::alter()
+                .table(Alias::new("sessions"))
                 .drop_column(Alias::new("pending_tasks"))
                 .to_owned(),
         )

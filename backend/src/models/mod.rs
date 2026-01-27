@@ -6,3 +6,5 @@ pub mod sessions;
 pub mod i64_format;
 pub mod blobs;
 pub mod messages;
+pub mod groups;
+pub mod users_groups;
