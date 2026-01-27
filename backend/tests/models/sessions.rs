@@ -17,17 +17,6 @@ async fn test_model() {
 
     let boot = boot_test::<App>().await.unwrap();
     seed::<App>(&boot.app_context).await.unwrap();
-
-    // query your model, e.g.:
-    //
-    // let item = models::posts::Model::find_by_pid(
-    //     &boot.app_context.db,
-    //     "11111111-1111-1111-1111-111111111111",
-    // )
-    // .await;
-
-    // snapshot the result:
-    // assert_debug_snapshot!(item);
 }
 
 #[test]
@@ -42,7 +31,9 @@ fn test_serialization() {
         id: Uuid::parse_str("11111111-1111-1111-1111-111111111111").unwrap(),
         title: Some("test".to_string()),
         content: Some("content".to_string()),
-        project_id: Some(1),
+        project_id: Some(Uuid::new_v4()),
+        pending_tasks: serde_json::json!([]),
+        status: "active".to_string(),
     };
 
     let json = serde_json::to_string(&item).unwrap();

@@ -2,11 +2,14 @@
 
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize, ToSchema)]
 #[sea_orm(table_name = "users")]
 pub struct Model {
+    #[schema(value_type = String, format = DateTime)]
     pub created_at: DateTimeWithTimeZone,
+    #[schema(value_type = String, format = DateTime)]
     pub updated_at: DateTimeWithTimeZone,
     #[sea_orm(primary_key)]
     #[serde(with = "crate::models::i64_format")]
@@ -19,13 +22,35 @@ pub struct Model {
     pub api_key: String,
     pub name: String,
     pub reset_token: Option<String>,
+    #[schema(value_type = Option<String>, format = DateTime)]
     pub reset_sent_at: Option<DateTimeWithTimeZone>,
     pub email_verification_token: Option<String>,
+    #[schema(value_type = Option<String>, format = DateTime)]
     pub email_verification_sent_at: Option<DateTimeWithTimeZone>,
+    #[schema(value_type = Option<String>, format = DateTime)]
     pub email_verified_at: Option<DateTimeWithTimeZone>,
     pub magic_link_token: Option<String>,
+    #[schema(value_type = Option<String>, format = DateTime)]
     pub magic_link_expiration: Option<DateTimeWithTimeZone>,
+    pub role: String,
+    #[serde(with = "crate::models::i64_format")]
+    pub quota_chat_invocations: i64,
+    #[serde(with = "crate::models::i64_format")]
+    pub quota_file_uploads: i64,
+    #[serde(with = "crate::models::i64_format")]
+    pub usage_chat_invocations: i64,
+    #[serde(with = "crate::models::i64_format")]
+    pub usage_file_uploads: i64,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]
-pub enum Relation {}
+pub enum Relation {
+    #[sea_orm(has_many = "super::users_groups::Entity")]
+    UsersGroups,
+}
+
+impl Related<super::users_groups::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UsersGroups.def()
+    }
+}
