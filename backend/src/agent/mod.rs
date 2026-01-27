@@ -1,4 +1,5 @@
 pub mod tools;
+pub mod docx;
 
 use loco_rs::prelude::*;
 use uuid::Uuid;
@@ -80,7 +81,10 @@ GUIDELINES:
    - ALWAYS generate at least 1-2 visual diagrams or illustrations using `generate_image`, related to the subject matter.
    - ALWAYS create a final Word report (`Summary_Report.docx`) aggregating the key findings, data, and context.
 7. Use `generate_image` liberally.
-8. USE `create_word_doc` for ALL formal documents (Reports, Proposals, Instructions). DO NOT use `create_text_file` for these; use Word (.docx). Use full Markdown formatting (headers, bold, lists, tables) for the content to ensure professional formatting.
+8. USE `create_word_doc` for ALL formal documents (Reports, Proposals, Instructions). DO NOT use `create_text_file` for these; use Word (.docx).
+   - For COMPLEX documents, especially those with TABLES, you MUST use the JSON DSL format serialized as a string in `content`.
+   - JSON DSL Structure: `[ {{ "type": "heading", "level": 1, "text": "Title" }}, {{ "type": "paragraph", "text": "Text with **bold**." }}, {{ "type": "table", "headers": ["H1", "H2"], "rows": [["R1C1", "R1C2"]] }} ]`
+   - Only use plain Markdown for very simple text-only documents.
 9. Return the result files when ready.
 
 
@@ -114,10 +118,10 @@ Thought: I need to read the SOP document to understand the process.
 Action: read_file
 Action Input: {{ "blob_id": "uuid-of-file" }}
 
-Example 2 (Creating result):
-Thought: I have processed the data. Now I will save the report with professional Markdown formatting.
+Example 2 (Creating result with Tables):
+Thought: I need to create a report with a table of data. I will use the JSON DSL for `create_word_doc` to ensure the table is formatted correctly.
 Action: create_word_doc
-Action Input: {{ "file_name": "Tech_Transfer_Report.docx", "content": "# Tech Transfer Report\n\n## Summary\nThis report covers the **Tech Transfer** process.\n\n### Key Findings\n- Part A is optimized.\n- Part B requires review." }}
+Action Input: {{ "file_name": "Data_Summary.docx", "content": "[{{\"type\":\"heading\",\"level\":1,\"text\":\"Data Summary\"}},{{\"type\":\"paragraph\",\"text\":\"Here is the extracted data:\"}},{{\"type\":\"table\",\"headers\":[\"Item\",\"Value\"],\"rows\":[[\"Part A\",\"10\"],[\"Part B\",\"20\"]]}}]" }}
 
 Example 3 (Done):
 Final Answer: I have created the report 'Tech_Transfer_Report.docx'.

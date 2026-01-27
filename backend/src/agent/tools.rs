@@ -312,6 +312,14 @@ pub async fn create_word_doc(
     session_id: Uuid,
     ctx: &AppContext,
 ) -> anyhow::Result<Uuid> {
+    use crate::agent::docx::{DocElement, generate_docx_from_json};
+
+    // Try to parse as JSON DSL
+    if let Ok(elements) = serde_json::from_str::<Vec<DocElement>>(content) {
+        let buf = generate_docx_from_json(elements, ctx).await?;
+        return save_blob(file_name, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buf, session_id, ctx).await;
+    }
+
     use pulldown_cmark::{Event, Parser, Tag, HeadingLevel, TagEnd};
 
     let buf = {
