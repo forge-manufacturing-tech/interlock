@@ -368,3 +368,24 @@ impl ActiveModel {
         self.update(db).await.map_err(ModelError::from)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use validator::Validate;
+
+    #[test]
+    fn test_validator() {
+        let validator = Validator {
+            name: "a".to_string(),
+            email: "invalid".to_string(),
+        };
+        assert!(Validate::validate(&validator).is_err());
+
+        let validator = Validator {
+            name: "John".to_string(),
+            email: "john@example.com".to_string(),
+        };
+        assert!(Validate::validate(&validator).is_ok());
+    }
+}
