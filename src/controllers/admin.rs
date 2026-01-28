@@ -256,6 +256,28 @@ pub async fn add_user_to_group(
 }
 
 #[utoipa::path(
+    delete,
+    path = "/api/admin/users/{id}",
+    params(
+        ("id" = Uuid, Path, description = "User PID")
+    ),
+    responses(
+        (status = 200, description = "User deleted"),
+        (status = 404, description = "User not found"),
+        (status = 403, description = "Unauthorized")
+    )
+)]
+pub async fn delete_user(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    ensure_admin(&current_user)?;
+
+    let user = crate::models::users::Model::find_by_pid(&ctx.db, &pid.to_string()).await?;
+    user.delete(&ctx.db).await?;
+
+    format::empty()
+}
+
+#[utoipa::path(
     put,
     path = "/api/admin/users/{id}",
     params(
@@ -292,6 +314,7 @@ pub fn routes() -> Routes {
         .prefix("/api/admin")
         .add("/users", get(list_users))
         .add("/users/{id}", get(get_user))
+        .add("/users/{id}", delete(delete_user))
         .add("/users/{id}", put(update_user))
         .add("/users/{id}/promote", post(promote))
         .add("/users/{id}/demote", post(demote))

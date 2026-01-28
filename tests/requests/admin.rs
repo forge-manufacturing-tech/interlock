@@ -206,3 +206,47 @@ async fn test_viewer_restrictions() {
     })
     .await;
 }
+
+#[tokio::test]
+#[serial]
+async fn test_delete_user() {
+    request::<App, _, _>(|request, ctx| async move {
+        // Create Admin
+        let admin_email = "admin@loco.com";
+        request.post("/api/auth/register").json(&serde_json::json!({
+            "name": "Admin", "email": admin_email, "password": "password"
+        })).await;
+
+        // Login Admin
+        let user = users::Model::find_by_email(&ctx.db, admin_email).await.unwrap();
+        if let Some(token) = user.email_verification_token {
+            request.get(&format!("/api/auth/verify/{}", token)).await;
+        }
+        let response = request.post("/api/auth/login").json(&serde_json::json!({
+            "email": admin_email,
+            "password": "password"
+        })).await;
+        let json: serde_json::Value = serde_json::from_str(&response.text()).unwrap();
+        let admin_token = json["token"].as_str().unwrap().to_string();
+
+        // Create User to Delete
+        let user_email = "delete_me@loco.com";
+        request.post("/api/auth/register").json(&serde_json::json!({
+            "name": "Delete Me", "email": user_email, "password": "password"
+        })).await;
+
+        let user_to_delete = users::Model::find_by_email(&ctx.db, user_email).await.unwrap();
+        let user_pid = user_to_delete.pid;
+
+        // Delete User
+        let response = request.delete(&format!("/api/admin/users/{}", user_pid))
+            .add_header("Authorization", &format!("Bearer {}", admin_token))
+            .await;
+        assert_eq!(response.status_code(), 200);
+
+        // Verify User Deleted
+        let result = users::Model::find_by_pid(&ctx.db, &user_pid.to_string()).await;
+        assert!(result.is_err());
+    })
+    .await;
+}
