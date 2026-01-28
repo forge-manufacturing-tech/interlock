@@ -6,7 +6,7 @@ use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use sea_orm::{EntityTrait, QueryFilter, QueryOrder, ColumnTrait};
 use crate::models::_entities::messages;
-use crate::agent::tools::{excel_to_csv, create_excel, list_files, get_excel_sheets, create_text_file, download_from_url, read_file, create_word_doc, create_pdf_doc, generate_image, search_internet};
+use crate::agent::tools::{excel_to_csv, create_excel, list_files, get_excel_sheets, create_text_file, download_from_url, read_file, create_word_doc, create_pdf_doc, generate_image};
 
 
 use regex::Regex;
@@ -212,17 +212,6 @@ impl AgentTool for GenerateImageTool {
     }
 }
 
-struct SearchInternetTool;
-#[async_trait]
-impl AgentTool for SearchInternetTool {
-    fn name(&self) -> String { "search_internet".to_string() }
-    fn description(&self) -> String { "Searches the internet for information about parts, components, or items. (query: string)".to_string() }
-    async fn call(&self, input: serde_json::Value, _ctx: &AppContext, _session_id: Uuid) -> anyhow::Result<String> {
-        let query = input["query"].as_str().ok_or_else(|| anyhow::anyhow!("Missing query"))?;
-        search_internet(query).await
-    }
-}
-
 pub fn get_default_registry() -> ToolRegistry {
     let mut registry = ToolRegistry::new();
     registry.register(ListFilesTool);
@@ -235,7 +224,6 @@ pub fn get_default_registry() -> ToolRegistry {
     registry.register(CreateTextFileTool);
     registry.register(DownloadFromUrlTool);
     registry.register(GenerateImageTool);
-    registry.register(SearchInternetTool);
     registry
 }
 
