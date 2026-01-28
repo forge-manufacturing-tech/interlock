@@ -9,6 +9,7 @@ pub struct LoginResponse {
     pub pid: String,
     pub name: String,
     pub is_verified: bool,
+    pub role: String,
 }
 
 impl LoginResponse {
@@ -19,15 +20,18 @@ impl LoginResponse {
             pid: user.pid.to_string(),
             name: user.name.clone(),
             is_verified: user.email_verified_at.is_some(),
+            role: user.role.clone(),
         }
     }
 }
+
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
 pub struct CurrentResponse {
     pub pid: String,
     pub name: String,
     pub email: String,
+    pub role: String,
 }
 
 impl CurrentResponse {
@@ -37,6 +41,7 @@ impl CurrentResponse {
             pid: user.pid.to_string(),
             name: user.name.clone(),
             email: user.email.clone(),
+            role: user.role.clone(),
         }
     }
 }
