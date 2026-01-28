@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
-      - 'backend/**'
+      - 'src/**'
+      - 'migration/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/integration-tests.yml'
 
 jobs:
@@ -43,19 +46,17 @@ jobs:
             ~/.cargo/registry/index/
             ~/.cargo/registry/cache/
             ~/.cargo/git/db/
-            backend/target/
+            target/
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
 
       - name: Run migrations
-        working-directory: backend
         env:
           DATABASE_URL: postgres://loco:loco@localhost:5432/interlock_local
         run: |
           cargo loco db migrate
 
       - name: Start backend server
-        working-directory: backend
         env:
           DATABASE_URL: postgres://loco:loco@localhost:5432/interlock_local
         run: |
@@ -63,7 +64,6 @@ jobs:
           sleep 10
 
       - name: Run Rust integration tests
-        working-directory: backend
         env:
           DATABASE_URL: postgres://loco:loco@localhost:5432/interlock_local
         run: |

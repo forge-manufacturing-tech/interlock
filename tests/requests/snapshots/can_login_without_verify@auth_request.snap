@@ -1,0 +1,6 @@
+---
+source: tests/requests/auth.rs
+assertion_line: 189
+expression: login_response.text()
+---
+"{\"token\":\"TOKEN\",\"pid\":\"PID\",\"name\":\"loco\",\"is_verified\":false,\"role\":\"admin\"}"

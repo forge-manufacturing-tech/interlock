@@ -5,7 +5,10 @@ on:
     branches:
       - main
     paths:
-      - 'backend/**'
+      - 'src/**'
+      - 'migration/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
@@ -28,7 +31,7 @@ jobs:
       - name: Build Container
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: .
           # Do not push, just build and export to Docker archive
           outputs: type=docker,dest=/tmp/image.tar
           tags: us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
