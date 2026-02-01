@@ -573,3 +573,93 @@ async fn can_auth_with_api_key_and_regenerate() {
     })
     .await;
 }
+
+#[tokio::test]
+#[serial]
+async fn can_change_password() {
+    configure_insta!();
+
+    request::<App, _, _>(|request, ctx| async move {
+        // 1. Setup user
+        let user = prepare_data::init_user_login(&request, &ctx).await;
+
+        // 2. Change password
+        let (auth_key, auth_value) = prepare_data::auth_header(&user.token);
+
+        let change_password_payload = serde_json::json!({
+            "old_password": "1234",
+            "new_password": "new-password-123",
+        });
+
+        let response = request
+            .post("/api/auth/change-password")
+            .add_header(auth_key.clone(), auth_value.clone())
+            .json(&change_password_payload)
+            .await;
+
+        assert_eq!(
+            response.status_code(),
+            200,
+            "Change password request should succeed"
+        );
+
+        // 3. Verify old password fails
+        let login_old = request
+            .post("/api/auth/login")
+            .json(&serde_json::json!({
+                "email": user.user.email,
+                "password": "1234"
+            }))
+            .await;
+
+        assert_eq!(
+            login_old.status_code(),
+            401,
+            "Login with old password should fail"
+        );
+
+        // 4. Verify new password works
+        let login_new = request
+            .post("/api/auth/login")
+            .json(&serde_json::json!({
+                "email": user.user.email,
+                "password": "new-password-123"
+            }))
+            .await;
+
+        assert_eq!(
+            login_new.status_code(),
+            200,
+            "Login with new password should succeed"
+        );
+
+        // 5. Test invalid old password
+        // Login again to get token (or reuse old one if still valid - JWT usually is)
+        let token = login_new.json::<serde_json::Value>()["token"].as_str().unwrap().to_string();
+        let (auth_key, auth_value) = prepare_data::auth_header(&token);
+
+        let invalid_payload = serde_json::json!({
+            "old_password": "wrong-password",
+            "new_password": "another-password"
+        });
+
+        let invalid_response = request
+            .post("/api/auth/change-password")
+            .add_header(auth_key, auth_value)
+            .json(&invalid_payload)
+            .await;
+
+        assert_eq!(
+            invalid_response.status_code(),
+            401,
+            "Change password with invalid old password should fail"
+        );
+
+        with_settings!({
+            filters => cleanup_user_model()
+        }, {
+             assert_debug_snapshot!((response.status_code(), response.text()));
+        });
+    })
+    .await;
+}

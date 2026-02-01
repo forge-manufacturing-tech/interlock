@@ -9,7 +9,7 @@ async fn test_openapi_ui() {
         // Test Swagger UI HTML
         let response = request.get("/api-docs/ui").await;
         assert_eq!(response.status_code(), 200);
-        assert!(response.text().contains("SwaggerUI"));
+        assert!(response.text().contains("API Reference"));
 
         // Test OpenAPI JSON
         let response = request.get("/api-docs/openapi.json").await;
