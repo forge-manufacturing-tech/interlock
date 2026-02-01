@@ -16,6 +16,7 @@ async fn test_openapi_ui() {
         assert_eq!(response.status_code(), 200);
         let json: serde_json::Value = serde_json::from_str(&response.text()).unwrap();
         assert!(json["openapi"].as_str().is_some());
+        assert!(json["paths"]["/api/admin/users/{id}"]["delete"].is_object());
     })
     .await;
 }

@@ -14,6 +14,7 @@ use crate::{controllers, models, views};
         controllers::admin::promote,
         controllers::admin::demote,
         controllers::admin::reset_password,
+        controllers::admin::delete_user,
         controllers::sessions::list,
         controllers::sessions::add,
         controllers::sessions::update,
