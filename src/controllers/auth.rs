@@ -44,6 +44,12 @@ pub struct ResendVerificationParams {
     pub email: String,
 }
 
+#[derive(Debug, Deserialize, Serialize, ToSchema)]
+pub struct ChangePasswordParams {
+    pub old_password: String,
+    pub new_password: String,
+}
+
 /// Register function creates a new user with the given parameters and sends a
 /// welcome email to the user
 #[utoipa::path(
@@ -332,6 +338,34 @@ pub async fn initialized(State(ctx): State<AppContext>) -> Result<Response> {
     format::json(InitResponse { initialized: count > 0 })
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/auth/change-password",
+    request_body = ChangePasswordParams,
+    responses(
+        (status = 200, description = "Password changed successfully"),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+#[debug_handler]
+async fn change_password(
+    auth: ApiAuth,
+    State(ctx): State<AppContext>,
+    Json(params): Json<ChangePasswordParams>,
+) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
+
+    if !user.verify_password(&params.old_password) {
+        return unauthorized("Invalid old password");
+    }
+
+    user.into_active_model()
+        .reset_password(&ctx.db, &params.new_password)
+        .await?;
+
+    format::json(())
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api/auth")
@@ -342,6 +376,7 @@ pub fn routes() -> Routes {
         .add("/forgot", post(forgot))
         .add("/reset", post(reset))
         .add("/current", get(current))
+        .add("/change-password", post(change_password))
         .add("/api-key", post(regenerate_api_key))
         .add("/magic-link", post(magic_link))
         .add("/magic-link/{token}", get(magic_link_verify))
