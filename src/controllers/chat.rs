@@ -6,6 +6,7 @@ use utoipa::ToSchema;
 use axum::{
     extract::{Path, State},
 };
+use crate::controllers::api_auth::ApiAuth;
 use crate::models::{
     _entities::{messages::{ActiveModel, Entity, Model}, sessions},
 };
@@ -37,7 +38,7 @@ impl From<Model> for MessageResponse {
     }
 }
 
-pub async fn check_session_access(ctx: &AppContext, _auth: &auth::JWT, session_id: Uuid) -> Result<sessions::Model> {
+pub async fn check_session_access(ctx: &AppContext, _auth: &ApiAuth, session_id: Uuid) -> Result<sessions::Model> {
     let session = sessions::Entity::find_by_id(session_id)
         .one(&ctx.db)
         .await?
@@ -59,7 +60,7 @@ pub async fn check_session_access(ctx: &AppContext, _auth: &auth::JWT, session_i
 )]
 pub async fn chat(
     Path(session_id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Json(params): Json<ChatParams>,
 ) -> Result<Response> {
@@ -118,7 +119,7 @@ pub async fn chat(
 )]
 pub async fn list_messages(
     Path(session_id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let _session = check_session_access(&ctx, &auth, session_id).await?;
@@ -144,7 +145,7 @@ pub async fn list_messages(
 )]
 pub async fn clear_messages(
     Path(session_id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let _session = check_session_access(&ctx, &auth, session_id).await?;
@@ -175,7 +176,7 @@ pub struct QueueTasksParams {
 )]
 pub async fn queue_tasks(
     Path(session_id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Json(params): Json<QueueTasksParams>,
 ) -> Result<Response> {
@@ -209,7 +210,7 @@ pub async fn queue_tasks(
 )]
 pub async fn cancel_session(
     Path(session_id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let session = check_session_access(&ctx, &auth, session_id).await?;
@@ -236,7 +237,7 @@ pub async fn cancel_session(
 )]
 pub async fn retry_session(
     Path(session_id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let session = check_session_access(&ctx, &auth, session_id).await?;

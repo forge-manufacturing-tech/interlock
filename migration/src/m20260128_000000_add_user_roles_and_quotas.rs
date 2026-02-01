@@ -7,7 +7,7 @@ pub struct Migration;
 #[async_trait::async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, m: &SchemaManager) -> Result<(), DbErr> {
-        let db = m.get_connection();
+        let _db = m.get_connection();
         let backend = m.get_database_backend();
 
         if !m.has_column("users", "role").await? {

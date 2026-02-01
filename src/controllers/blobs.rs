@@ -14,6 +14,7 @@ use crate::models::{
 };
 use crate::storage::get_storage;
 use object_store::path::Path as ObjectPath;
+use crate::controllers::api_auth::ApiAuth;
 
 #[derive(Debug, Serialize, ToSchema)]
 pub struct BlobResponse {
@@ -39,7 +40,7 @@ impl From<Model> for BlobResponse {
     }
 }
 
-async fn check_session_access(ctx: &AppContext, _auth: &auth::JWT, session_id: Uuid) -> Result<sessions::Model> {
+async fn check_session_access(ctx: &AppContext, _auth: &ApiAuth, session_id: Uuid) -> Result<sessions::Model> {
     let session = sessions::Entity::find_by_id(session_id)
         .one(&ctx.db)
         .await?
@@ -61,7 +62,7 @@ async fn check_session_access(ctx: &AppContext, _auth: &auth::JWT, session_id: U
 )]
 pub async fn upload(
     Path(session_id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     mut multipart: Multipart,
 ) -> Result<Response> {
@@ -111,7 +112,7 @@ pub async fn upload(
 )]
 pub async fn list(
     Path(session_id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let _session = check_session_access(&ctx, &auth, session_id).await?;
@@ -137,7 +138,7 @@ pub async fn list(
 )]
 pub async fn download(
     Path(id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
 ) -> Result<impl IntoResponse> {
     let blob = Entity::find_by_id(id)
@@ -179,7 +180,7 @@ pub async fn download(
 )]
 pub async fn remove(
     Path(id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
 ) -> Result<Response> {
     let blob = Entity::find_by_id(id)

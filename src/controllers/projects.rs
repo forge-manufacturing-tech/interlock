@@ -3,6 +3,7 @@ use loco_rs::prelude::*;
 use sea_orm::{prelude::DateTimeWithTimeZone, Condition, QuerySelect, JoinType, PaginatorTrait, RelationTrait};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
+use crate::controllers::api_auth::ApiAuth;
 use crate::models::{
     _entities::{projects::{ActiveModel, Entity, Model}, users_projects},
     users,
@@ -66,8 +67,8 @@ pub struct UserSearchResponse {
         (status = 200, description = "List all projects for current user", body = Vec<ProjectResponse>)
     )
 )]
-pub async fn list(auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid)
+pub async fn list(auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string())
         .await
         .map_err(|_| Error::Unauthorized("User not found".into()))?;
     
@@ -89,8 +90,8 @@ pub async fn list(auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Resp
         (status = 200, description = "Project created", body = ProjectResponse)
     )
 )]
-pub async fn create(auth: auth::JWT, State(ctx): State<AppContext>, Json(params): Json<CreateProjectParams>) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid)
+pub async fn create(auth: ApiAuth, State(ctx): State<AppContext>, Json(params): Json<CreateProjectParams>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string())
         .await
         .map_err(|_| Error::Unauthorized("User not found".into()))?;
 
@@ -135,8 +136,8 @@ pub async fn create(auth: auth::JWT, State(ctx): State<AppContext>, Json(params)
         (status = 403, description = "Unauthorized")
     )
 )]
-pub async fn get_one(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn get_one(Path(id): Path<Uuid>, auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     
     // Check access
     let project = Entity::find_by_id(id).one(&ctx.db).await?;
@@ -169,11 +170,11 @@ pub async fn get_one(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<Ap
 )]
 pub async fn update(
     Path(id): Path<Uuid>,
-    auth: auth::JWT, 
+    auth: ApiAuth,
     State(ctx): State<AppContext>, 
     Json(params): Json<UpdateProjectParams>
 ) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     
     // Check access
     let has_access = users_projects::Entity::find()
@@ -211,8 +212,8 @@ pub async fn update(
         (status = 404, description = "Project not found")
     )
 )]
-pub async fn remove(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn remove(Path(id): Path<Uuid>, auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     
     // Check access (maybe only allow if user created it? For now any member can delete to keep it simple or check DB logic later)
     // Realistically should check if user is OWNER. But our Join table has no roles.
@@ -247,11 +248,11 @@ pub async fn remove(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<App
 )]
 pub async fn share(
     Path(id): Path<Uuid>,
-    auth: auth::JWT, 
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Json(params): Json<ShareProjectParams>
 ) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     
     // Check access
     let has_access = users_projects::Entity::find()
@@ -301,11 +302,11 @@ pub async fn share(
     )
 )]
 pub async fn search_users(
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Query(params): Query<serde_json::Value>,
 ) -> Result<Response> {
-    let _user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let _user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     let q = params.get("q").and_then(|v| v.as_str()).unwrap_or("");
     
     if q.len() < 2 {
