@@ -1,9 +1,9 @@
 use loco_rs::prelude::*;
-use sea_orm::QueryOrder;
+use sea_orm::{QueryOrder, ColumnTrait, QueryFilter, EntityTrait, ModelTrait, PaginatorTrait};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use crate::models::{
-    _entities::{users, groups, users_groups},
+    _entities::{users, groups, users_groups, users_projects, projects, sessions, blobs},
 };
 use uuid::Uuid;
 
@@ -272,7 +272,55 @@ pub async fn delete_user(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): Sta
     ensure_admin(&current_user)?;
 
     let user = crate::models::users::Model::find_by_pid(&ctx.db, &pid.to_string()).await?;
+
+    // Get projects user is involved in
+    let project_ids: Vec<Uuid> = users_projects::Entity::find()
+        .filter(users_projects::Column::UserId.eq(user.id))
+        .all(&ctx.db)
+        .await?
+        .into_iter()
+        .map(|up| up.project_id)
+        .collect();
+
+    // Delete user (cascades to users_projects)
     user.delete(&ctx.db).await?;
+
+    // Check for orphaned projects
+    for project_id in project_ids {
+        let count = users_projects::Entity::find()
+            .filter(users_projects::Column::ProjectId.eq(project_id))
+            .count(&ctx.db)
+            .await?;
+
+        if count == 0 {
+             // Orphaned project, clean up
+             let project = projects::Entity::find_by_id(project_id).one(&ctx.db).await?;
+             if let Some(project) = project {
+                 // Get sessions to cleanup blobs
+                 let sessions = sessions::Entity::find()
+                    .filter(sessions::Column::ProjectId.eq(project_id))
+                    .all(&ctx.db)
+                    .await?;
+
+                 let storage = crate::storage::get_storage();
+
+                 for session in sessions {
+                     let blobs = blobs::Entity::find()
+                        .filter(blobs::Column::SessionId.eq(session.id))
+                        .all(&ctx.db)
+                        .await?;
+
+                     for blob in blobs {
+                         if let Err(e) = storage.delete(&object_store::path::Path::from(blob.storage_key)).await {
+                             tracing::error!("Failed to delete blob {} from storage: {:?}", blob.id, e);
+                         }
+                     }
+                 }
+
+                 project.delete(&ctx.db).await?;
+             }
+        }
+    }
 
     format::empty()
 }

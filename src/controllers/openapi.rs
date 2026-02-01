@@ -1,5 +1,6 @@
 use loco_rs::prelude::*;
 use utoipa::OpenApi;
+use axum::response::Html;
 use crate::{controllers, models, views};
 
 #[derive(OpenApi)]
@@ -64,8 +65,41 @@ pub async fn get_openapi() -> Result<Json<serde_json::Value>> {
     Ok(Json(json_value))
 }
 
+pub async fn serve_swagger_ui() -> Result<Html<String>> {
+    let html = r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="SwaggerUI" />
+  <title>SwaggerUI</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
+</head>
+<body>
+<div id="swagger-ui"></div>
+<script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin></script>
+<script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js" crossorigin></script>
+<script>
+  window.onload = () => {
+    window.ui = SwaggerUIBundle({
+      url: '/api-docs/openapi.json',
+      dom_id: '#swagger-ui',
+      presets: [
+        SwaggerUIBundle.presets.apis,
+        SwaggerUIStandalonePreset
+      ],
+      layout: "StandaloneLayout",
+    });
+  };
+</script>
+</body>
+</html>"#;
+    Ok(Html(html.to_string()))
+}
+
 pub fn routes() -> Routes {
     Routes::new()
         .prefix("/api-docs")
         .add("/openapi.json", get(get_openapi))
+        .add("/ui", get(serve_swagger_ui))
 }
