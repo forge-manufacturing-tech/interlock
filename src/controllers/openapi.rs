@@ -1,5 +1,8 @@
 use loco_rs::prelude::*;
-use utoipa::OpenApi;
+use utoipa::openapi::security::{
+    ApiKey, ApiKeyValue, HttpAuthScheme, HttpBuilder, SecurityScheme,
+};
+use utoipa::{Modify, OpenApi};
 use axum::response::Html;
 use crate::{controllers, models, views};
 
@@ -58,8 +61,35 @@ use crate::{controllers, models, views};
             controllers::chat::MessageResponse,
         )
     ),
+    modifiers(&SecurityAddon),
+    security(
+        ("api_key" = []),
+        ("bearer_token" = [])
+    )
 )]
 pub struct ApiDoc;
+
+struct SecurityAddon;
+
+impl Modify for SecurityAddon {
+    fn modify(&self, openapi: &mut utoipa::openapi::OpenApi) {
+        if let Some(components) = openapi.components.as_mut() {
+            components.add_security_scheme(
+                "api_key",
+                SecurityScheme::ApiKey(ApiKey::Header(ApiKeyValue::new("X-API-Key"))),
+            );
+            components.add_security_scheme(
+                "bearer_token",
+                SecurityScheme::Http(
+                    HttpBuilder::new()
+                        .scheme(HttpAuthScheme::Bearer)
+                        .bearer_format("JWT")
+                        .build(),
+                ),
+            );
+        }
+    }
+}
 
 pub async fn get_openapi() -> Result<Json<serde_json::Value>> {
     let openapi = ApiDoc::openapi();
@@ -70,33 +100,21 @@ pub async fn get_openapi() -> Result<Json<serde_json::Value>> {
 }
 
 pub async fn serve_swagger_ui() -> Result<Html<String>> {
-    let html = r#"<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="SwaggerUI" />
-  <title>SwaggerUI</title>
-  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui.css" />
-</head>
-<body>
-<div id="swagger-ui"></div>
-<script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-bundle.js" crossorigin></script>
-<script src="https://unpkg.com/swagger-ui-dist@5.11.0/swagger-ui-standalone-preset.js" crossorigin></script>
-<script>
-  window.onload = () => {
-    window.ui = SwaggerUIBundle({
-      url: '/api-docs/openapi.json',
-      dom_id: '#swagger-ui',
-      presets: [
-        SwaggerUIBundle.presets.apis,
-        SwaggerUIStandalonePreset
-      ],
-      layout: "StandaloneLayout",
-    });
-  };
-</script>
-</body>
+    let html = r#"<!doctype html>
+<html>
+  <head>
+    <title>API Reference</title>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1" />
+  </head>
+  <body>
+    <script
+      id="api-reference"
+      data-url="/api-docs/openapi.json"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+  </body>
 </html>"#;
     Ok(Html(html.to_string()))
 }
