@@ -1,4 +1,5 @@
 use crate::{
+    controllers::api_auth::ApiAuth,
     mailers::auth::AuthMailer,
     models::{
         _entities::users,
@@ -12,6 +13,7 @@ use sea_orm::PaginatorTrait;
 use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 use utoipa::ToSchema;
+use uuid::Uuid;
 
 pub static EMAIL_DOMAIN_RE: OnceLock<Regex> = OnceLock::new();
 
@@ -188,9 +190,34 @@ async fn login(State(ctx): State<AppContext>, Json(params): Json<LoginParams>) -
     format::json(LoginResponse::new(&user, &token))
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/auth/current",
+    responses(
+        (status = 200, description = "Get current user", body = CurrentResponse),
+        (status = 401, description = "Unauthorized")
+    )
+)]
 #[debug_handler]
-async fn current(auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+async fn current(auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
+    format::json(CurrentResponse::new(&user))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/auth/api-key",
+    responses(
+        (status = 200, description = "Regenerate API key", body = CurrentResponse),
+        (status = 401, description = "Unauthorized")
+    )
+)]
+#[debug_handler]
+async fn regenerate_api_key(auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
+    let mut user = user.into_active_model();
+    user.api_key = ActiveValue::Set(format!("lo-{}", Uuid::new_v4()));
+    let user = user.update(&ctx.db).await?;
     format::json(CurrentResponse::new(&user))
 }
 
@@ -315,6 +342,7 @@ pub fn routes() -> Routes {
         .add("/forgot", post(forgot))
         .add("/reset", post(reset))
         .add("/current", get(current))
+        .add("/api-key", post(regenerate_api_key))
         .add("/magic-link", post(magic_link))
         .add("/magic-link/{token}", get(magic_link_verify))
         .add("/resend-verification-mail", post(resend_verification_email))

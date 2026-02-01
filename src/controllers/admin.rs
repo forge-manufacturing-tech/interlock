@@ -2,8 +2,11 @@ use loco_rs::prelude::*;
 use sea_orm::{QueryOrder, ColumnTrait, QueryFilter, EntityTrait, ModelTrait, PaginatorTrait};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
-use crate::models::{
-    _entities::{users, groups, users_groups, users_projects, projects, sessions, blobs},
+use crate::{
+    controllers::api_auth::ApiAuth,
+    models::{
+        _entities::{users, groups, users_groups, users_projects, projects, sessions, blobs},
+    },
 };
 use uuid::Uuid;
 
@@ -82,8 +85,8 @@ fn ensure_admin(user: &users::Model) -> Result<()> {
         (status = 403, description = "Unauthorized")
     )
 )]
-pub async fn list_users(auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn list_users(auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&user)?;
 
     let users = users::Entity::find()
@@ -107,8 +110,8 @@ pub async fn list_users(auth: auth::JWT, State(ctx): State<AppContext>) -> Resul
         (status = 403, description = "Unauthorized")
     )
 )]
-pub async fn get_user(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn get_user(Path(pid): Path<Uuid>, auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&current_user)?;
 
     let user = crate::models::users::Model::find_by_pid(&ctx.db, &pid.to_string()).await?;
@@ -127,8 +130,8 @@ pub async fn get_user(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): State<
         (status = 403, description = "Unauthorized")
     )
 )]
-pub async fn promote(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn promote(Path(pid): Path<Uuid>, auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&current_user)?;
 
     let user = crate::models::users::Model::find_by_pid(&ctx.db, &pid.to_string()).await?;
@@ -151,8 +154,8 @@ pub async fn promote(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): State<A
         (status = 403, description = "Unauthorized")
     )
 )]
-pub async fn demote(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn demote(Path(pid): Path<Uuid>, auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&current_user)?;
 
     if current_user.pid == pid {
@@ -182,11 +185,11 @@ pub async fn demote(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): State<Ap
 )]
 pub async fn reset_password(
     Path(pid): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Json(params): Json<ResetPasswordParams>
 ) -> Result<Response> {
-    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&current_user)?;
 
     let user = crate::models::users::Model::find_by_pid(&ctx.db, &pid.to_string()).await?;
@@ -206,11 +209,11 @@ pub async fn reset_password(
     )
 )]
 pub async fn create_group(
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Json(params): Json<GroupParams>
 ) -> Result<Response> {
-    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&current_user)?;
 
     let group = groups::ActiveModel {
@@ -237,11 +240,11 @@ pub async fn create_group(
 )]
 pub async fn add_user_to_group(
     Path(group_id): Path<i64>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Json(params): Json<AddUserToGroupParams>
 ) -> Result<Response> {
-    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&current_user)?;
 
     users_groups::ActiveModel {
@@ -267,8 +270,8 @@ pub async fn add_user_to_group(
         (status = 403, description = "Unauthorized")
     )
 )]
-pub async fn delete_user(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn delete_user(Path(pid): Path<Uuid>, auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&current_user)?;
 
     let user = crate::models::users::Model::find_by_pid(&ctx.db, &pid.to_string()).await?;
@@ -340,11 +343,11 @@ pub async fn delete_user(Path(pid): Path<Uuid>, auth: auth::JWT, State(ctx): Sta
 )]
 pub async fn update_user(
     Path(id): Path<i64>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Json(params): Json<UpdateUserParams>
 ) -> Result<Response> {
-    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let current_user = crate::models::users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     ensure_admin(&current_user)?;
 
     let user = users::Entity::find_by_id(id).one(&ctx.db).await?.ok_or(Error::NotFound)?;

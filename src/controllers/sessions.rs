@@ -4,6 +4,7 @@ use sea_orm::{prelude::DateTimeWithTimeZone, QuerySelect, JoinType, PaginatorTra
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 use utoipa::{ToSchema, IntoParams};
+use crate::controllers::api_auth::ApiAuth;
 use crate::models::{
     _entities::{sessions::{ActiveModel, Entity, Model}, users_projects},
     users,
@@ -74,11 +75,11 @@ impl From<Model> for SessionResponse {
     )
 )]
 pub async fn list(
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Query(params): Query<ListParams>,
 ) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid)
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string())
         .await
         .map_err(|_| Error::Unauthorized("User not found".into()))?;
     
@@ -115,8 +116,8 @@ pub async fn list(
         (status = 200, description = "Session created", body = SessionResponse)
     )
 )]
-pub async fn add(auth: auth::JWT, State(ctx): State<AppContext>, Json(params): Json<Params>) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid)
+pub async fn add(auth: ApiAuth, State(ctx): State<AppContext>, Json(params): Json<Params>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string())
         .await
         .map_err(|_| Error::Unauthorized("User not found".into()))?;
     
@@ -162,11 +163,11 @@ pub async fn add(auth: auth::JWT, State(ctx): State<AppContext>, Json(params): J
 )]
 pub async fn update(
     Path(id): Path<Uuid>,
-    auth: auth::JWT,
+    auth: ApiAuth,
     State(ctx): State<AppContext>,
     Json(params): Json<Params>,
 ) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     
     let item = load_item(&ctx, id).await?;
     
@@ -199,8 +200,8 @@ pub async fn update(
         (status = 404, description = "Session not found")
     )
 )]
-pub async fn remove(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn remove(Path(id): Path<Uuid>, auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     let item = load_item(&ctx, id).await?;
     
      if let Some(project_id) = item.project_id {
@@ -242,8 +243,8 @@ pub async fn remove(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<App
         (status = 404, description = "Session not found")
     )
 )]
-pub async fn get_one(Path(id): Path<Uuid>, auth: auth::JWT, State(ctx): State<AppContext>) -> Result<Response> {
-    let user = users::Model::find_by_pid(&ctx.db, &auth.claims.pid).await?;
+pub async fn get_one(Path(id): Path<Uuid>, auth: ApiAuth, State(ctx): State<AppContext>) -> Result<Response> {
+    let user = users::Model::find_by_pid(&ctx.db, &auth.pid.to_string()).await?;
     let item = load_item(&ctx, id).await?;
 
     if let Some(project_id) = item.project_id {

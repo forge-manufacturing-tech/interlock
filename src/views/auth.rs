@@ -32,6 +32,7 @@ pub struct CurrentResponse {
     pub name: String,
     pub email: String,
     pub role: String,
+    pub api_key: String,
 }
 
 impl CurrentResponse {
@@ -42,6 +43,7 @@ impl CurrentResponse {
             name: user.name.clone(),
             email: user.email.clone(),
             role: user.role.clone(),
+            api_key: user.api_key.clone(),
         }
     }
 }

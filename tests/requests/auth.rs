@@ -127,7 +127,7 @@ async fn login_with_un_existing_email() {
     configure_insta!();
 
     request::<App, _, _>(|request, _ctx| async move {
-      
+
         let login_response = request
             .post("/api/auth/login")
             .json(&serde_json::json!({
@@ -497,6 +497,79 @@ async fn cannot_resend_email_if_already_verified() {
             deliveries.count, 1,
             "Only the original welcome email should be sent"
         );
+    })
+    .await;
+}
+
+#[tokio::test]
+#[serial]
+async fn can_auth_with_api_key_and_regenerate() {
+    configure_insta!();
+
+    request::<App, _, _>(|request, ctx| async move {
+        let user = prepare_data::init_user_login(&request, &ctx).await;
+
+        let api_key = user.user.api_key;
+
+        // 1. Access current user with API Key
+        let response = request
+            .get("/api/auth/current")
+            .add_header("X-API-Key", &api_key)
+            .await;
+
+        assert_eq!(
+            response.status_code(),
+            200,
+            "Current request with API Key should succeed"
+        );
+
+        // 2. Regenerate API Key (using existing JWT or API Key)
+        let (auth_key, auth_value) = prepare_data::auth_header(&user.token);
+        let regen_response = request
+            .post("/api/auth/api-key")
+            .add_header(auth_key, auth_value)
+            .await;
+
+        assert_eq!(
+            regen_response.status_code(),
+            200,
+            "Regenerate API Key request should succeed"
+        );
+
+        let json: serde_json::Value = regen_response.json();
+        let new_api_key = json["api_key"].as_str().unwrap().to_string();
+
+        assert_ne!(api_key, new_api_key, "New API Key should be different");
+
+        // 3. Verify old key fails
+        let fail_response = request
+            .get("/api/auth/current")
+            .add_header("X-API-Key", &api_key)
+            .await;
+
+        assert_eq!(
+            fail_response.status_code(),
+            401,
+            "Old API Key should fail"
+        );
+
+        // 4. Verify new key works
+        let success_response = request
+            .get("/api/auth/current")
+            .add_header("X-API-Key", &new_api_key)
+            .await;
+
+        assert_eq!(
+            success_response.status_code(),
+            200,
+            "New API Key should succeed"
+        );
+
+        with_settings!({
+            filters => cleanup_user_model()
+        }, {
+            assert_debug_snapshot!((success_response.status_code(), success_response.text()));
+        });
     })
     .await;
 }

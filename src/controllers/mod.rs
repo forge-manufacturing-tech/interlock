@@ -5,3 +5,4 @@ pub mod projects;
 pub mod openapi;
 pub mod blobs;
 pub mod chat;
+pub mod api_auth;

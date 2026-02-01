@@ -1,7 +1,7 @@
 ---
 source: tests/requests/auth.rs
-assertion_line: 309
-expression: "(response.status_code(), response.text())"
+assertion_line: 571
+expression: "(success_response.status_code(), success_response.text())"
 ---
 (
     200,
