@@ -230,7 +230,7 @@ pub fn get_default_registry() -> ToolRegistry {
 pub async fn run_agent_cycle(
     ctx: &AppContext,
     session_id: Uuid,
-    _user_query: &str,
+    user_query: &str,
     api_key: &str,
     blobs: Vec<(String, String)>,
     registry: &ToolRegistry,
@@ -338,6 +338,24 @@ Begin!
             }],
         });
     }
+
+    // Ensure the current user query is at the end of history
+    // This handles cases where the DB fetch missed the latest insert or if we want to ensure the prompt is active
+    let last_content_matches = history.last()
+        .map(|m| m.role == "user" && m.parts.first().and_then(|p| p.text.as_ref()) == Some(&user_query.to_string()))
+        .unwrap_or(false);
+
+    if !last_content_matches {
+        println!("Appended missing user query to history (DB fetch lag or mismatch).");
+        history.push(GeminiContent {
+            role: "user".to_string(),
+            parts: vec![GeminiPart {
+                text: Some(user_query.to_string()),
+            }],
+        });
+    }
+
+    println!("Agent History Length: {}. Last role: {:?}", history.len(), history.last().map(|m| &m.role));
 
     // Regex for parsing using multi-line mode
     // Captures "Action: <name>" and "Action Input: <json>"
