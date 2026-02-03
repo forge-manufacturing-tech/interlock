@@ -353,8 +353,8 @@ Begin!
     // Captures "Action: <name>" and "Action Input: <json>"
     let action_regex = Regex::new(r"(?i)(?m)^\s*Action:\s*(?P<action>[\w_]+)\s*$").unwrap();
     
-    for cycle in 0..15 {
-        println!("Cycle {}/15...", cycle + 1);
+    for cycle in 0..25 {
+        println!("Cycle {}/25...", cycle + 1);
         let request = GeminiRequest {
             contents: history.clone(),
             generation_config: Some(GenerationConfig {
@@ -374,8 +374,8 @@ Begin!
             if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
                 if retry_count < 3 {
                     retry_count += 1;
-                    println!("Gemini API 429 Too Many Requests. Retrying {}/3 in 2 seconds...", retry_count);
-                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                    println!("Gemini API 429 Too Many Requests. Retrying {}/3 in 10 seconds...", retry_count);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(10)).await;
                     continue;
                 }
             }
