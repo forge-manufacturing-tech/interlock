@@ -132,16 +132,17 @@ struct CreateExcelTool;
 #[async_trait]
 impl AgentTool for CreateExcelTool {
     fn name(&self) -> String { "create_excel".to_string() }
-    fn description(&self) -> String { "Creates a new Excel file. (file_name: string, rows: string[][])".to_string() }
+    fn description(&self) -> String { "Creates a new Excel file. (file_name: string, rows: string[][], replace_existing: bool?)".to_string() }
     async fn call(&self, input: serde_json::Value, ctx: &AppContext, session_id: Uuid) -> anyhow::Result<String> {
         let file_name = input["file_name"].as_str().unwrap_or("output.xlsx");
         let rows_val = input["rows"].as_array().ok_or_else(|| anyhow::anyhow!("Missing rows"))?;
+        let replace_existing = input["replace_existing"].as_bool().unwrap_or(false);
         let mut rows = Vec::new();
         for row_val in rows_val {
             let row: Vec<String> = row_val.as_array().unwrap_or(&vec![]).iter().map(|v| v.as_str().unwrap_or("").to_string()).collect();
             rows.push(row);
         }
-        let id = create_excel(file_name, rows, session_id, ctx).await?;
+        let id = create_excel(file_name, rows, session_id, ctx, replace_existing).await?;
         Ok(format!("Success: New Excel file '{}' created. ID: {}.", file_name, id))
     }
 }
@@ -150,12 +151,13 @@ struct CreateWordDocTool;
 #[async_trait]
 impl AgentTool for CreateWordDocTool {
     fn name(&self) -> String { "create_word_doc".to_string() }
-    fn description(&self) -> String { "Creates a new Word document. (file_name: string, content: string, image_id: string?)".to_string() }
+    fn description(&self) -> String { "Creates a new Word document. (file_name: string, content: string, image_id: string?, replace_existing: bool?)".to_string() }
     async fn call(&self, input: serde_json::Value, ctx: &AppContext, session_id: Uuid) -> anyhow::Result<String> {
         let file_name = input["file_name"].as_str().unwrap_or("output.docx");
         let content = input["content"].as_str().ok_or_else(|| anyhow::anyhow!("Missing content"))?;
         let image_id = input["image_id"].as_str().and_then(|s| Uuid::parse_str(s).ok());
-        let id = create_word_doc(file_name, content, image_id, session_id, ctx).await?;
+        let replace_existing = input["replace_existing"].as_bool().unwrap_or(false);
+        let id = create_word_doc(file_name, content, image_id, session_id, ctx, replace_existing).await?;
         Ok(format!("Success: New Word doc '{}' created. ID: {}.", file_name, id))
     }
 }
@@ -164,11 +166,12 @@ struct CreatePdfDocTool;
 #[async_trait]
 impl AgentTool for CreatePdfDocTool {
     fn name(&self) -> String { "create_pdf_doc".to_string() }
-    fn description(&self) -> String { "Creates a new PDF document. (file_name: string, content: string)".to_string() }
+    fn description(&self) -> String { "Creates a new PDF document. (file_name: string, content: string, replace_existing: bool?)".to_string() }
     async fn call(&self, input: serde_json::Value, ctx: &AppContext, session_id: Uuid) -> anyhow::Result<String> {
         let file_name = input["file_name"].as_str().unwrap_or("output.pdf");
         let content = input["content"].as_str().ok_or_else(|| anyhow::anyhow!("Missing content"))?;
-        let id = create_pdf_doc(file_name, content, session_id, ctx).await?;
+        let replace_existing = input["replace_existing"].as_bool().unwrap_or(false);
+        let id = create_pdf_doc(file_name, content, session_id, ctx, replace_existing).await?;
         Ok(format!("Success: New PDF '{}' created. ID: {}.", file_name, id))
     }
 }
@@ -177,11 +180,12 @@ struct CreateTextFileTool;
 #[async_trait]
 impl AgentTool for CreateTextFileTool {
     fn name(&self) -> String { "create_text_file".to_string() }
-    fn description(&self) -> String { "Creates a text file. (file_name: string, content: string)".to_string() }
+    fn description(&self) -> String { "Creates a text file. (file_name: string, content: string, replace_existing: bool?)".to_string() }
     async fn call(&self, input: serde_json::Value, ctx: &AppContext, session_id: Uuid) -> anyhow::Result<String> {
         let file_name = input["file_name"].as_str().unwrap_or("output.txt");
         let content = input["content"].as_str().ok_or_else(|| anyhow::anyhow!("Missing content"))?;
-        let id = create_text_file(file_name, content, session_id, ctx).await?;
+        let replace_existing = input["replace_existing"].as_bool().unwrap_or(false);
+        let id = create_text_file(file_name, content, session_id, ctx, replace_existing).await?;
         Ok(format!("Success: New text file '{}' created. ID: {}.", file_name, id))
     }
 }
@@ -190,11 +194,12 @@ struct DownloadFromUrlTool;
 #[async_trait]
 impl AgentTool for DownloadFromUrlTool {
     fn name(&self) -> String { "download_from_url".to_string() }
-    fn description(&self) -> String { "Downloads a file from a URL. (url: string, file_name: string)".to_string() }
+    fn description(&self) -> String { "Downloads a file from a URL. (url: string, file_name: string, replace_existing: bool?)".to_string() }
     async fn call(&self, input: serde_json::Value, ctx: &AppContext, session_id: Uuid) -> anyhow::Result<String> {
         let url = input["url"].as_str().ok_or_else(|| anyhow::anyhow!("Missing url"))?;
         let file_name = input["file_name"].as_str().unwrap_or("downloaded_file");
-        let id = download_from_url(url, file_name, session_id, ctx).await?;
+        let replace_existing = input["replace_existing"].as_bool().unwrap_or(false);
+        let id = download_from_url(url, file_name, session_id, ctx, replace_existing).await?;
         Ok(format!("Success: File downloaded as '{}'. ID: {}.", file_name, id))
     }
 }
@@ -203,11 +208,12 @@ struct GenerateImageTool;
 #[async_trait]
 impl AgentTool for GenerateImageTool {
     fn name(&self) -> String { "generate_image".to_string() }
-    fn description(&self) -> String { "Generates an image based on the prompt. (prompt: string, file_name: string)".to_string() }
+    fn description(&self) -> String { "Generates an image based on the prompt. (prompt: string, file_name: string, replace_existing: bool?)".to_string() }
     async fn call(&self, input: serde_json::Value, ctx: &AppContext, session_id: Uuid) -> anyhow::Result<String> {
         let file_name = input["file_name"].as_str().unwrap_or("generated_image.png");
         let prompt = input["prompt"].as_str().ok_or_else(|| anyhow::anyhow!("Missing prompt"))?;
-        let id = generate_image(prompt, file_name, session_id, ctx).await?;
+        let replace_existing = input["replace_existing"].as_bool().unwrap_or(false);
+        let id = generate_image(prompt, file_name, session_id, ctx, replace_existing).await?;
         Ok(format!("Success: Image '{}' generated. ID: {}.", file_name, id))
     }
 }
@@ -260,14 +266,15 @@ GUIDELINES:
 4. IMAGE GENERATION: Use `generate_image` to create technical illustrations, flowcharts, or visual aids. 
    - When you call `generate_image`, the tool returns an ID (UUID) in the observation.
    - You can then use this ID as the `image_id` argument in `create_word_doc` to embed that image into the document.
-5. If the user asks for a diagram (e.g. Mermaid), you can include the Mermaid code in your response or in a generated text/markdown file.
-6. MANDATORY OUTPUTS:
+5. UPDATING FILES: If you need to update a file that might already exist (e.g. "metadata.json" or a draft report), always set `replace_existing: true` in the tool arguments. This prevents creating duplicate files with the same name.
+6. If the user asks for a diagram (e.g. Mermaid), you can include the Mermaid code in your response or in a generated text/markdown file.
+7. MANDATORY OUTPUTS:
    - Follow the specific instructions provided in the user's current request.
    - If the user asks for files, create them.
    - If the user asks for analysis, provide it.
    - **ACTION BIAS**: If the request is vague, MAKE REASONABLE ASSUMPTIONS and proceed with generation. Do not stop to ask for clarification unless absolutely necessary.
-7. COMPOSING DOCUMENTS: You can use multiple tools in sequence. For example, read session files -> analyze data -> `generate_image` for a visual -> `create_word_doc` using the generated image ID.
-8. USE `create_word_doc` for ALL formal documents (Reports, Proposals, Instructions). DO NOT use `create_text_file` for these; use Word (.docx).
+8. COMPOSING DOCUMENTS: You can use multiple tools in sequence. For example, read session files -> analyze data -> `generate_image` for a visual -> `create_word_doc` using the generated image ID.
+9. USE `create_word_doc` for ALL formal documents (Reports, Proposals, Instructions). DO NOT use `create_text_file` for these; use Word (.docx).
    - For COMPLEX documents, especially those with TABLES, you MUST use the JSON DSL format serialized as a string in `content`.
    - JSON DSL Structure: `[ {{ "type": "heading", "level": 1, "text": "Title" }}, {{ "type": "paragraph", "text": "Text with **bold**." }}, {{ "type": "table", "headers": ["H1", "H2"], "rows": [["R1C1", "R1C2"]] }} ]`
    - Only use plain Markdown for very simple text-only documents.

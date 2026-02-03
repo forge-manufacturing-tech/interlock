@@ -93,6 +93,7 @@ pub async fn create_excel(
     rows: Vec<Vec<String>>,
     session_id: Uuid,
     ctx: &AppContext,
+    replace_existing: bool,
 ) -> anyhow::Result<Uuid> {
     let temp_dir = tempfile::tempdir()?;
     let file_path = temp_dir.path().join("output.xlsx");
@@ -114,7 +115,7 @@ pub async fn create_excel(
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
     
-    save_blob(file_name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf, session_id, ctx).await
+    save_blob(file_name, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf, session_id, ctx, replace_existing).await
 }
 
 pub async fn create_text_file(
@@ -122,8 +123,9 @@ pub async fn create_text_file(
     content: &str,
     session_id: Uuid,
     ctx: &AppContext,
+    replace_existing: bool,
 ) -> anyhow::Result<Uuid> {
-    save_blob(file_name, "text/plain", content.as_bytes().to_vec(), session_id, ctx).await
+    save_blob(file_name, "text/plain", content.as_bytes().to_vec(), session_id, ctx, replace_existing).await
 }
 
 pub async fn download_from_url(
@@ -131,6 +133,7 @@ pub async fn download_from_url(
     file_name: &str,
     session_id: Uuid,
     ctx: &AppContext,
+    replace_existing: bool,
 ) -> anyhow::Result<Uuid> {
     let client = reqwest::Client::new();
     let resp = client.get(url).send().await?;
@@ -141,7 +144,7 @@ pub async fn download_from_url(
         .to_string();
     
     let bytes = resp.bytes().await?;
-    save_blob(file_name, &content_type, bytes.into(), session_id, ctx).await
+    save_blob(file_name, &content_type, bytes.into(), session_id, ctx, replace_existing).await
 }
 
 use base64::{Engine as _, engine::general_purpose};
@@ -151,6 +154,7 @@ pub async fn generate_image(
     file_name: &str,
     session_id: Uuid,
     ctx: &AppContext,
+    replace_existing: bool,
 ) -> anyhow::Result<Uuid> {
     let api_key = std::env::var("GEMINI_API_KEY")
         .map_err(|_| anyhow::anyhow!("GEMINI_API_KEY not set"))?;
@@ -213,18 +217,53 @@ pub async fn generate_image(
         .decode(&base64_clean)
         .map_err(|e| anyhow::anyhow!("Failed to decode base64 image: {}", e))?;
 
-    save_blob(file_name, "image/png", image_data, session_id, ctx).await
+    save_blob(file_name, "image/png", image_data, session_id, ctx, replace_existing).await
 }
 
 // --- NEW TOOLS ---
 
 // Helper to save blobs avoiding duplication
-async fn save_blob(file_name: &str, content_type: &str, data: Vec<u8>, session_id: Uuid, ctx: &AppContext) -> anyhow::Result<Uuid> {
-    let blob_id = Uuid::new_v4();
-    let storage_key = format!("{}/{}", session_id, blob_id);
+// Helper to save blobs avoiding duplication
+async fn save_blob(
+    file_name: &str, 
+    content_type: &str, 
+    data: Vec<u8>, 
+    session_id: Uuid, 
+    ctx: &AppContext, 
+    replace_existing: bool
+) -> anyhow::Result<Uuid> {
+    let mut blob_to_update = None;
+
+    if replace_existing {
+        blob_to_update = blobs::Entity::find()
+            .filter(blobs::Column::SessionId.eq(session_id))
+            .filter(blobs::Column::FileName.eq(file_name))
+            .one(&ctx.db)
+            .await?;
+    }
+
+    let storage = get_storage();
     let size = data.len() as i64;
     
-    let storage = get_storage();
+    if let Some(existing_blob) = blob_to_update {
+         let blob_id = existing_blob.id;
+        let storage_key = existing_blob.storage_key.clone();
+        
+        storage.put(&ObjectPath::from(storage_key.clone()), data.into()).await?;
+
+        let mut active: blobs::ActiveModel = existing_blob.into();
+        active.content_type = ActiveValue::Set(content_type.to_string());
+        active.size = ActiveValue::Set(size);
+        // storage_key remains same
+        // file_name remains same
+        active.update(&ctx.db).await?;
+        
+        return Ok(blob_id);
+    } 
+
+    let blob_id = Uuid::new_v4();
+    let storage_key = format!("{}/{}", session_id, blob_id);
+    
     storage.put(&ObjectPath::from(storage_key.clone()), data.into()).await?;
 
     let blob = blobs::ActiveModel {
@@ -311,13 +350,14 @@ pub async fn create_word_doc(
     image_id: Option<Uuid>,
     session_id: Uuid,
     ctx: &AppContext,
+    replace_existing: bool,
 ) -> anyhow::Result<Uuid> {
     use crate::agent::docx::{DocElement, generate_docx_from_json};
 
     // Try to parse as JSON DSL
     if let Ok(elements) = serde_json::from_str::<Vec<DocElement>>(content) {
         let buf = generate_docx_from_json(elements, ctx).await?;
-        return save_blob(file_name, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buf, session_id, ctx).await;
+        return save_blob(file_name, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buf, session_id, ctx, replace_existing).await;
     }
 
     use pulldown_cmark::{Event, Parser, Tag, HeadingLevel, TagEnd};
@@ -422,7 +462,7 @@ pub async fn create_word_doc(
         buf
     };
     
-    save_blob(file_name, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buf, session_id, ctx).await
+    save_blob(file_name, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", buf, session_id, ctx, replace_existing).await
 }
 
 pub async fn create_pdf_doc(
@@ -430,6 +470,7 @@ pub async fn create_pdf_doc(
     content: &str,
     session_id: Uuid,
     ctx: &AppContext,
+    replace_existing: bool,
 ) -> anyhow::Result<Uuid> {
     // Ensure font exists locally to avoid system font issues
     let font_dir = std::path::Path::new("storage/fonts");
@@ -499,6 +540,6 @@ pub async fn create_pdf_doc(
         buf
     };
     
-    save_blob(file_name, "application/pdf", buf, session_id, ctx).await
+    save_blob(file_name, "application/pdf", buf, session_id, ctx, replace_existing).await
 }
 
