@@ -273,11 +273,20 @@ GUIDELINES:
 
 
 RESPONSE FORMAT:
-You MUST format your output strictly as follows:
+You MUST format your output as follows.
 
-Thought: [Your reasoning about what to do next]
-Action: [The exact name of the tool to use]
-Action Input: [A valid JSON object containing the arguments, and ONLY the JSON object]
+To use a tool:
+Thought: I need to [reasoning]
+Action: [tool_name]
+Action Input: {{ [valid_json_arguments] }}
+
+To provide the final response to the user:
+Final Answer: [your response]
+
+IMPORTANT:
+1. "Action:" must match a tool name exactly (e.g. `read_file`).
+2. "Action Input:" must be a valid JSON object. Do not add markdown backticks.
+3. When you provide a "Final Answer", the agent loop stops. Ensure you have completed the task.
 
 TOOLS:
 {}
@@ -339,9 +348,9 @@ Begin!
 
     println!("Agent History Length: {}. Last role: {:?}", history.len(), history.last().map(|m| &m.role));
 
-    // Regex for parsing using multi-line mode
+    // Regex for parsing using multi-line mode, with flexibility for spacing and case
     // Captures "Action: <name>" and "Action Input: <json>"
-    let action_regex = Regex::new(r"(?m)^Action:\s*(?P<action>\w+)\s*$").unwrap();
+    let action_regex = Regex::new(r"(?i)(?m)^\s*Action:\s*(?P<action>[\w_]+)\s*$").unwrap();
     
     for cycle in 0..15 {
         println!("Cycle {}/15...", cycle + 1);
@@ -398,19 +407,35 @@ Begin!
             }],
         });
 
-        if ai_text_clean.contains("Final Answer:") {
-            return Ok(ai_text_clean.to_string());
+        // 0. Check for Final Answer explicitly
+        if let Some(pos) = ai_text_clean.find("Final Answer:") {
+           let answer = ai_text_clean[pos + 13..].trim().to_string();
+           return Ok(answer);
         }
 
         // Parsing Logic
         // 1. Find Action
         if let Some(caps) = action_regex.captures(ai_text_clean) {
-            let action = caps.name("action").unwrap().as_str().to_string();
+            let action = caps.name("action").unwrap().as_str().trim().to_lowercase();
             
             // 2. Find Input
-            let parts: Vec<&str> = ai_text_clean.split("Action Input:").collect();
+            // Split by "Action Input:" (case insensitive search would be better, but split is case sensitive)
+            // We'll try standard split. If not found, check for lowercase.
+            let parts: Vec<&str> = if ai_text_clean.contains("Action Input:") {
+                ai_text_clean.split("Action Input:").collect()
+            } else if ai_text_clean.contains("action input:") {
+                ai_text_clean.split("action input:").collect()
+            } else {
+                 let observation = "Error: Found 'Action:' but missing 'Action Input:'. Please provide the arguments in JSON format.";
+                 history.push(GeminiContent {
+                    role: "user".to_string(),
+                    parts: vec![GeminiPart { text: Some(format!("Observation: {}", observation)) }],
+                });
+                continue;
+            };
+
             if parts.len() < 2 {
-                let observation = "Error: Found 'Action:' but missing 'Action Input:'. Please provide the arguments in JSON format.";
+                let observation = "Error: Found 'Action:' but could not parse 'Action Input' value.";
                  history.push(GeminiContent {
                     role: "user".to_string(),
                     parts: vec![GeminiPart { text: Some(format!("Observation: {}", observation)) }],
@@ -457,7 +482,19 @@ Begin!
                 }],
             });
 
+        } else if ai_text_clean.contains("Action:") || ai_text_clean.contains("action:") {
+             // Loose match for Action but regex failed (likely formatting)
+             let observation = "Error: I detected 'Action:' but the format was incorrect. usage:\nAction: <tool_name>\nAction Input: <json>";
+             history.push(GeminiContent {
+                role: "user".to_string(),
+                parts: vec![GeminiPart {
+                    text: Some(format!("Observation: {}", observation)),
+                }],
+            });
+            continue;
         } else {
+            // No action, No Final Answer (but maybe implicit).
+            // We'll return it as is, assuming the model is chatting.
              return Ok(ai_text_clean.to_string());
         }
     }

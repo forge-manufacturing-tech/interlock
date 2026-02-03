@@ -33,6 +33,6 @@ echo "PostgreSQL setup complete!"
 
 # Fix permissions
 echo "Fixing permissions..."
-sudo chown -R vscode:vscode /workspaces
+sudo chown -R vscode:vscode /workspaces/interlock
 
 echo "Setup complete!"
