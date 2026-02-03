@@ -120,7 +120,7 @@ struct ReadFileTool;
 #[async_trait]
 impl AgentTool for ReadFileTool {
     fn name(&self) -> String { "read_file".to_string() }
-    fn description(&self) -> String { "Reads the text content of a file (PDF, DOCX, or Text). (blob_id: string)".to_string() }
+    fn description(&self) -> String { "Reads the text content of a file (PDF, DOCX, CSV, or Text). (blob_id: string)".to_string() }
     async fn call(&self, input: serde_json::Value, ctx: &AppContext, _session_id: Uuid) -> anyhow::Result<String> {
         let blob_id_str = input["blob_id"].as_str().ok_or_else(|| anyhow::anyhow!("Missing blob_id"))?;
         let blob_id = Uuid::parse_str(blob_id_str)?;
