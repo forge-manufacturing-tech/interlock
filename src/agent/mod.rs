@@ -265,6 +265,7 @@ GUIDELINES:
    - Follow the specific instructions provided in the user's current request.
    - If the user asks for files, create them.
    - If the user asks for analysis, provide it.
+   - **ACTION BIAS**: If the request is vague, MAKE REASONABLE ASSUMPTIONS and proceed with generation. Do not stop to ask for clarification unless absolutely necessary.
 7. COMPOSING DOCUMENTS: You can use multiple tools in sequence. For example, read session files -> analyze data -> `generate_image` for a visual -> `create_word_doc` using the generated image ID.
 8. USE `create_word_doc` for ALL formal documents (Reports, Proposals, Instructions). DO NOT use `create_text_file` for these; use Word (.docx).
    - For COMPLEX documents, especially those with TABLES, you MUST use the JSON DSL format serialized as a string in `content`.
@@ -494,8 +495,15 @@ Begin!
             continue;
         } else {
             // No action, No Final Answer (but maybe implicit).
-            // We'll return it as is, assuming the model is chatting.
-             return Ok(ai_text_clean.to_string());
+            // If the model just outputs thought/chat without Action or Final Answer, we force it to conform.
+             let observation = "System Warning: You did not provide a 'Final Answer:' or an 'Action:'. Please format your response strictly. If you are done or asking a question, use 'Final Answer:'.";
+             history.push(GeminiContent {
+                role: "user".to_string(),
+                parts: vec![GeminiPart {
+                    text: Some(format!("Observation: {}", observation)),
+                }],
+            });
+            continue;
         }
     }
 
