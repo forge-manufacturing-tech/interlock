@@ -354,11 +354,24 @@ Begin!
             }),
         };
 
-        let response_res = client.post(&url)
-            .json(&request)
-            .send()
-            .await?;
-        
+        let mut retry_count = 0;
+        let response_res = loop {
+            let res = client.post(&url)
+                .json(&request)
+                .send()
+                .await?;
+
+            if res.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                if retry_count < 3 {
+                    retry_count += 1;
+                    println!("Gemini API 429 Too Many Requests. Retrying {}/3 in 2 seconds...", retry_count);
+                    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+                    continue;
+                }
+            }
+            break res;
+        };
+
         let status = response_res.status();
         let response_text: String = response_res.text().await?;
         
