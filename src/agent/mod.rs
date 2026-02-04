@@ -243,7 +243,7 @@ pub async fn run_agent_cycle(
 ) -> anyhow::Result<String> {
     let client = reqwest::Client::new();
     let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key={}",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key={}",
         api_key
     );
 

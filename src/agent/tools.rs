@@ -163,7 +163,7 @@ pub async fn generate_image(
     
     // Using gemini-2.5-flash-image as recommended for image generation "Nano Banana"
     let url = format!(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={}",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key={}",
         api_key
     );
 
