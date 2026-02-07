@@ -233,6 +233,63 @@ pub fn get_default_registry() -> ToolRegistry {
     registry
 }
 
+fn parse_agent_response(response_text: &str) -> Option<(String, serde_json::Value, String)> {
+    let action_regex = Regex::new(r"(?i)(?m)^\s*Action:\s*(?P<action>[\w_]+)\s*$").unwrap();
+
+    if let Some(caps) = action_regex.captures(response_text) {
+        let action = caps.name("action").unwrap().as_str().trim().to_lowercase();
+        let match_end = caps.get(0).unwrap().end();
+
+        let remainder = &response_text[match_end..];
+
+        // Find "Action Input:"
+        // We use case-insensitive search logic manually or via regex if needed, but "Action Input:" is the standard prompts
+        let input_marker = "Action Input:";
+        let input_marker_lower = "action input:";
+
+        let idx_opt = remainder.find(input_marker).or_else(|| remainder.find(input_marker_lower));
+
+        if let Some(idx) = idx_opt {
+             let json_start = idx + input_marker.len();
+             let json_candidate = &remainder[json_start..];
+             let json_candidate_trimmed = json_candidate.trim_start();
+             let trim_offset = json_candidate.len() - json_candidate_trimmed.len();
+             let absolute_json_start = match_end + json_start + trim_offset;
+
+             // Find end of JSON
+             let keywords = ["Action:", "Final Answer:", "Thought:", "Observation:", "---"];
+             let mut end_idx = json_candidate_trimmed.len();
+
+             for kw in keywords {
+                 if let Some(kw_idx) = json_candidate_trimmed.find(kw) {
+                     if kw_idx < end_idx {
+                         end_idx = kw_idx;
+                     }
+                 }
+             }
+
+             let json_str = &json_candidate_trimmed[..end_idx].trim();
+
+             // Clean markdown
+             let input_clean = json_str.trim_matches('`').trim();
+             let input_clean = if input_clean.starts_with("json") {
+                &input_clean[4..]
+             } else {
+                input_clean
+             }.trim();
+
+             if let Ok(val) = serde_json::from_str(input_clean) {
+                 // Construct truncated history string:
+                 // Up to match_end + json_start + trim_offset + end_idx
+                 let processed_end = absolute_json_start + end_idx;
+                 let processed_text = response_text[..processed_end].to_string();
+                 return Some((action, val, processed_text));
+             }
+        }
+    }
+    None
+}
+
 pub async fn run_agent_cycle(
     ctx: &AppContext,
     session_id: Uuid,
@@ -356,10 +413,6 @@ Begin!
 
     println!("Agent History Length: {}. Last role: {:?}", history.len(), history.last().map(|m| &m.role));
 
-    // Regex for parsing using multi-line mode, with flexibility for spacing and case
-    // Captures "Action: <name>" and "Action Input: <json>"
-    let action_regex = Regex::new(r"(?i)(?m)^\s*Action:\s*(?P<action>[\w_]+)\s*$").unwrap();
-    
     for cycle in 0..25 {
         println!("Cycle {}/25...", cycle + 1);
         let request = GeminiRequest {
@@ -408,69 +461,29 @@ Begin!
         let ai_text_clean = ai_text.trim();
         println!("AI Thought: {}", ai_text_clean);
         
-        history.push(GeminiContent {
-            role: "model".to_string(),
-            parts: vec![GeminiPart {
-                text: Some(ai_text_clean.to_string()),
-            }],
-        });
-
         // 0. Check for Final Answer explicitly
         if let Some(pos) = ai_text_clean.find("Final Answer:") {
+           history.push(GeminiContent {
+                role: "model".to_string(),
+                parts: vec![GeminiPart {
+                    text: Some(ai_text_clean.to_string()),
+                }],
+            });
            let answer = ai_text_clean[pos + 13..].trim().to_string();
            return Ok(answer);
         }
 
         // Parsing Logic
-        // 1. Find Action
-        if let Some(caps) = action_regex.captures(ai_text_clean) {
-            let action = caps.name("action").unwrap().as_str().trim().to_lowercase();
-            
-            // 2. Find Input
-            // Split by "Action Input:" (case insensitive search would be better, but split is case sensitive)
-            // We'll try standard split. If not found, check for lowercase.
-            let parts: Vec<&str> = if ai_text_clean.contains("Action Input:") {
-                ai_text_clean.split("Action Input:").collect()
-            } else if ai_text_clean.contains("action input:") {
-                ai_text_clean.split("action input:").collect()
-            } else {
-                 let observation = "Error: Found 'Action:' but missing 'Action Input:'. Please provide the arguments in JSON format.";
-                 history.push(GeminiContent {
-                    role: "user".to_string(),
-                    parts: vec![GeminiPart { text: Some(format!("Observation: {}", observation)) }],
-                });
-                continue;
-            };
-
-            if parts.len() < 2 {
-                let observation = "Error: Found 'Action:' but could not parse 'Action Input' value.";
-                 history.push(GeminiContent {
-                    role: "user".to_string(),
-                    parts: vec![GeminiPart { text: Some(format!("Observation: {}", observation)) }],
-                });
-                continue;
-            }
-
-            let input_raw = parts.last().unwrap().trim();
-            // Remove markdown code blocks if present (```json ... ```)
-            let input_clean = input_raw.trim_matches('`').trim();
-            let input_clean = if input_clean.starts_with("json") {
-                &input_clean[4..]
-            } else {
-                input_clean
-            }.trim();
-
-            let input_val: serde_json::Value = match serde_json::from_str(input_clean) {
-                Ok(v) => v,
-                Err(e) => {
-                     let observation = format!("Error: Failed to parse JSON arguments: {}. Ensure 'Action Input' is valid JSON.", e);
-                     history.push(GeminiContent {
-                        role: "user".to_string(),
-                        parts: vec![GeminiPart { text: Some(format!("Observation: {}", observation)) }],
-                    });
-                    continue;
-                }
-            };
+        if let Some((action, input_val, processed_text)) = parse_agent_response(ai_text_clean) {
+            // Push only the processed text (action + input) to history
+            // This ensures that if there were multiple actions, subsequent ones are "forgotten"
+            // and the agent will re-generate them in the next turn.
+            history.push(GeminiContent {
+                role: "model".to_string(),
+                parts: vec![GeminiPart {
+                    text: Some(processed_text),
+                }],
+            });
 
             let observation = if let Some(tool) = registry.tools.get(&action) {
                 match tool.call(input_val, ctx, session_id).await {
@@ -490,7 +503,16 @@ Begin!
                 }],
             });
 
-        } else if ai_text_clean.contains("Action:") || ai_text_clean.contains("action:") {
+        } else {
+             // If parsing fails but we didn't return above (no Final Answer), we log the whole text
+             history.push(GeminiContent {
+                role: "model".to_string(),
+                parts: vec![GeminiPart {
+                    text: Some(ai_text_clean.to_string()),
+                }],
+            });
+
+            if ai_text_clean.contains("Action:") || ai_text_clean.contains("action:") {
              // Loose match for Action but regex failed (likely formatting)
              let observation = "Error: I detected 'Action:' but the format was incorrect. usage:\nAction: <tool_name>\nAction Input: <json>";
              history.push(GeminiContent {
@@ -512,6 +534,7 @@ Begin!
             });
             continue;
         }
+        } // End else
     }
 
     Ok("Terminated: Maximum agent cycles reached without Final Answer.".to_string())
@@ -632,3 +655,6 @@ pub async fn process_session_queue(ctx: AppContext, session_id: Uuid, registry: 
     
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;
